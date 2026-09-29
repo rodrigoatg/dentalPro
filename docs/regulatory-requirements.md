@@ -9,6 +9,9 @@ The document is intended to guide architectural and functional decisions
 during development.
 
 It does not constitute legal advice or a complete compliance assessment.
+Product scope decisions in this document describe implementation planning;
+they do not define, limit or replace obligations arising from applicable
+law. Those obligations require separate validation.
 
 ---
 
@@ -76,8 +79,11 @@ regulatory changes.
 Because DentalPro manages dental clinical information, the system should
 support a standardized dental record identifying individual dental pieces.
 
-The future Odontogram domain concept will provide the basis for this
-functionality.
+Product scope decision: the MVP includes a simplified Odontogram for
+permanent dentition using FDI notation and basic tooth states, without tooth
+surface detail. This implementation choice is not itself a legal
+requirement. Historical changes must remain traceable as part of clinical
+record integrity.
 
 ---
 
@@ -101,7 +107,10 @@ Clinical modifications must preserve historical traceability.
 The domain model reserves a future Consent concept for recording informed
 consents associated with treatments or clinical procedures when applicable.
 
-This functionality is not part of the initial MVP.
+Consent management is outside the initial MVP by product scope decision.
+This scope decision does not determine whether consent is legally required
+for a particular treatment or procedure; applicable obligations must be
+assessed separately.
 
 ---
 
@@ -109,16 +118,20 @@ This functionality is not part of the initial MVP.
 
 Clinical information requires restricted access.
 
-The system will use:
+The product security design considers:
 
 - Individual user accounts.
 - Role-Based Access Control.
 - Backend authorization.
 - Secure communication through HTTPS.
 - Password hashing.
-- Optional two-factor authentication.
 - Audit logging.
 - Backup and recovery mechanisms.
+
+Product scope decision: the MVP includes individual accounts, RBAC, backend
+authorization, HTTPS, password hashing and session expiration. 2FA is
+future product scope. This MVP boundary is not a statement that 2FA is or
+is not legally required.
 
 ---
 
@@ -133,7 +146,9 @@ protocols.
 Future integrations may use healthcare interoperability standards such as
 FHIR and standardized clinical terminology such as SNOMED CT.
 
-Interoperability is outside the initial MVP scope.
+External interoperability, including FHIR and SNOMED CT, is outside the
+initial MVP by product scope decision. This is not a determination of any
+legal interoperability obligation.
 
 ---
 

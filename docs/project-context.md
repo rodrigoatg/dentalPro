@@ -63,33 +63,31 @@ Responsabilidades:
 
 ---
 
-# 4. MVP
+# 4. MVP Scope
 
-El MVP inicial estará compuesto por:
+El MVP inicial incluye:
 
-1. Autenticación.
-2. Gestión de usuarios y roles.
-3. Gestión de pacientes.
-4. Gestión de turnos.
-5. Agenda.
-6. Historia clínica básica.
-7. Registro de tratamientos.
-8. Registro de observaciones.
+1. Authentication and authorization with individual credentials, password hashing, RBAC, HTTPS and session expiration.
+2. User and role management for Receptionist, Dentist, Administrative and SystemAdministrator.
+3. Patient management.
+4. Appointment scheduling and agenda.
+5. Medical records with ClinicalEntry creation and versioning; previous versions remain preserved and accessible.
+6. Treatment recording, including partial treatments involving multiple teeth with different completion states.
+7. An initial simplified Odontogram for permanent dentition using FDI notation and basic tooth states. Tooth changes remain traceable; tooth surface detail is excluded.
+8. AuditEvent records for relevant patient, appointment, clinical, treatment, odontogram and authentication operations. The MVP does not require auditing every read.
 
----
+# 5. Future Roadmap
 
-# 5. Funcionalidades futuras
+The following capabilities are outside the MVP:
 
-Las siguientes funcionalidades forman parte del
-producto completo pero no serán prioritarias para
-la primera implementación:
-
-- Bioimágenes.
-- Gestión financiera.
-- Reportes.
-- Exportación de historias clínicas.
-- Notificaciones externas.
-- Integraciones con servicios externos.
+- Two-factor authentication (2FA).
+- Medical images and file storage for clinical images.
+- Financial management and advanced financial reports.
+- Notifications.
+- Clinical record export.
+- Consent management.
+- External healthcare integrations, including FHIR and SNOMED CT.
+- Patient portal.
 
 ---
 
@@ -104,8 +102,7 @@ El sistema deberá contemplar:
 - Auditoría de acciones relevantes.
 - Expiración de sesión.
 
-Las funcionalidades avanzadas de 2FA podrán incorporarse
-posteriormente.
+2FA is future roadmap scope and is not required for the MVP.
 
 ---
 

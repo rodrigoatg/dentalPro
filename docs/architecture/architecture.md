@@ -77,9 +77,9 @@ within the Infrastructure layer.
 
 ### File Storage
 
-Clinical images and large documents should be stored
-using object/cloud storage rather than directly inside
-the relational database.
+Future scope: when medical images and clinical file storage are introduced,
+large files should use object/cloud storage rather than the relational
+database. File storage for clinical images is not part of the MVP.
 
 ## 3. Architectural Style
 
@@ -171,6 +171,10 @@ The frontend may hide functionality based on the user's
 permissions, but this must never be considered the primary
 security mechanism.
 
+The MVP includes individual credentials, password hashing, backend
+authorization, RBAC, HTTPS and session/token expiration. Two-factor
+authentication (2FA) is future scope and is not required for the MVP.
+
 ## 8. Security
 
 The architecture must support:
@@ -181,7 +185,7 @@ The architecture must support:
 - RBAC.
 - Audit logging.
 - Session/token expiration.
-- 2FA for unrecognized devices.
+- Future 2FA capability for unrecognized devices.
 
 ## 9. Persistence
 
@@ -265,6 +269,11 @@ The system must support:
 - Long-term data retention.
 - Backup and recovery.
 - Future interoperability.
+
+For the MVP, clinical integrity includes preserved ClinicalEntry versions,
+traceable treatment and Odontogram changes, and AuditEvent records for
+relevant operations. This does not prescribe a persistence mechanism or
+require auditing every read operation.
 
 The Domain layer must not depend directly on:
 

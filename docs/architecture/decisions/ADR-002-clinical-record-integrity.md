@@ -32,6 +32,10 @@ Clinical modifications must preserve sufficient information to identify:
 The exact persistence and versioning mechanism will be defined during the
 implementation design phase.
 
+For the MVP, every ClinicalEntry must be versioned so that previous
+versions are preserved and accessible. This requirement does not select a
+specific persistence mechanism. Full Event Sourcing is not required.
+
 ## Consequences
 
 ### Positive
@@ -40,7 +44,7 @@ implementation design phase.
 - Improved auditability.
 - Reduced risk of accidental data loss.
 - Better alignment with applicable regulatory requirements.
-- Easier future implementation of clinical document versioning.
+- A clear basis for future versioning of additional clinical documents.
 
 ### Negative
 
@@ -62,10 +66,11 @@ Not sufficient as the sole mechanism because technical database auditing
 does not necessarily provide an appropriate domain representation of
 clinical history.
 
-### Full event sourcing
+### Full Event Sourcing
 
-Not selected for the initial MVP because its complexity is not justified
-at the current stage of the project.
+Not selected or required for the initial MVP because its complexity is not
+justified at the current stage of the project. It remains a possible future
+evolution if requirements justify it.
 
 The architecture should remain open to more sophisticated event-based
 approaches if future requirements justify them.

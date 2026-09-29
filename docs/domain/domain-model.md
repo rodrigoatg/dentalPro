@@ -5,13 +5,15 @@
 The domain model represents the main concepts involved in the
 operation of a dental clinic.
 
-The current implementation focuses on:
+The MVP implementation scope uses the following existing domain concepts:
 
 - Users and access control.
 - Patients.
 - Appointments.
-- Medical records.
-- Clinical treatments.
+- Medical records and versioned ClinicalEntry records.
+- Clinical treatments, including partial completion.
+- A simplified Odontogram with traceable state changes.
+- AuditEvent records for relevant operations.
 
 Future capabilities include:
 
@@ -20,6 +22,11 @@ Future capabilities include:
 - Medical images.
 - Notifications.
 - Clinical document export.
+- Consent management.
+- External healthcare integrations, FHIR, SNOMED CT and a patient portal.
+
+This scope section does not add, remove or rename domain entities. Concepts
+described elsewhere in this model as future remain outside the MVP.
 
 ## 2. Main Aggregates
 
@@ -69,6 +76,9 @@ Business rules:
   the MedicalRecord or other clinical domain entities.
 - Creation of a Patient should create the associated MedicalRecord
   and Odontogram as part of the same transactional operation.
+
+MVP scope: Patient and MedicalRecord creation are included. The Odontogram
+created for the MVP uses the simplified scope defined below.
 
 Future relationship:
 
@@ -132,7 +142,7 @@ Responsibilities:
 - Associate clinical information with the responsible healthcare professional.
 - Preserve the integrity and traceability of clinical information.
 - Provide controlled access to clinical information.
-- Support future clinical documents, consents, medical images and odontogram data.
+- Support the Odontogram and future clinical documents, consents and medical images.
 
 Attributes:
 
@@ -149,7 +159,7 @@ Relationships:
 - Belongs to exactly one Patient.
 - Contains zero or many ClinicalEntries.
 - Contains zero or many Treatments.
-- May contain one Odontogram.
+- Contains exactly one Odontogram.
 - May contain zero or many Consents.
 - May contain zero or many MedicalImages.
 - May contain zero or many ClinicalDocuments.
@@ -221,6 +231,10 @@ Versioning:
 - Previous versions remain available for audit and traceability.
 - Previous versions cannot be modified or deleted through normal
   application operations.
+
+MVP scope: ClinicalEntry versioning is required. Previous versions remain
+preserved and accessible. This document does not prescribe the persistence
+mechanism.
 
 ### ClinicalEntryVersion
 
@@ -311,7 +325,9 @@ Business rules:
 - Audit events must not be modified or deleted through normal application
   operations.
 - Security-sensitive and clinical operations must generate audit events.
-- Access to clinical information should be auditable.
+- Relevant clinical, patient, treatment, odontogram and authentication
+  operations must be auditable. The MVP does not require auditing every
+  read operation.
 - Creation of new ClinicalEntryVersion records must generate an
   corresponding audit event.
 - Export of clinical information must generate an audit event.
@@ -370,6 +386,11 @@ Business rules:
 - ToothStateHistory records are immutable.
 - The current Odontogram state must be consistent with the latest valid
   ToothStateHistory for each dental piece.
+
+MVP scope: The initial implementation covers permanent dentition using FDI
+notation and basic tooth states. It does not include tooth surface detail.
+Changes to tooth state remain historically traceable through the existing
+ToothStateHistory concept.
 
 ### OdontogramTooth
 
@@ -464,8 +485,8 @@ Possible surfaces depend on the dental piece and may include:
 - Occlusal
 - Incisal
 
-This concept is reserved for future clinical detail and may be omitted
-from the initial MVP implementation.
+This concept is reserved for future clinical detail and is outside the
+initial MVP implementation.
 
 ### Dental notation
 
@@ -543,6 +564,12 @@ Business rules:
 - Cost represents clinical treatment cost information and does not
   represent a financial transaction in the current MVP.
 
+MVP scope: Treatment recording and partial treatment support are included.
+The original treatment must retain the completion state that was true at
+that time. A later clinical action that completes a previously pending
+tooth must be recorded as a later treatment/action and must not rewrite the
+original treatment's history.
+
 
 ### TreatmentTooth
 
@@ -610,11 +637,11 @@ pending.
 
 The Odontogram is updated only for teeth 14 and 15.
 
-Later, the patient attends another appointment and tooth 16 is restored.
-The system updates:
+Later, the patient attends another appointment and a subsequent Treatment B
+records the restoration of tooth 16. Treatment A remains historically
+accurate with tooth 16 pending. The system records:
 
-- Tooth 16: Completed
-- Treatment: Completed
+- Treatment B, tooth 16: Completed
 
 The Odontogram is then updated to reflect the new current state of
 tooth 16.
@@ -733,16 +760,12 @@ Relationships:
 
 Represents a set of permissions assigned to a user.
 
-Initial roles:
+MVP roles:
 
 - Receptionist
 - Dentist
-- SystemAdministrator
-- PlatformAdministrator
-
-Future role:
-
 - Administrative
+- SystemAdministrator
 
 
 Relationships:
@@ -760,13 +783,14 @@ Operational roles:
 System administration:
 - SystemAdministrator
 
-Technical administration:
+Technical development/testing account:
 - PlatformAdministrator
 
 ### PlatformAdministrator
 
-Represents a privileged technical role with full access to the
-application.
+Represents a privileged developer/superuser account used for development,
+testing, maintenance or troubleshooting. It is not a normal operational
+business role.
 
 This role is intended for development, maintenance, troubleshooting,
 and platform administration.
@@ -924,6 +948,12 @@ Auditability is implemented through two complementary mechanisms:
   at each version.
 - AuditEvent records who performed an operation, when it occurred, what
   entity was affected, and additional contextual information.
+
+MVP audit scope includes patient creation, update and deactivation;
+appointment creation, update and cancellation; clinical record changes;
+ClinicalEntry and Treatment creation or update; Odontogram changes; and
+authentication events. Every read operation does not need an AuditEvent in
+the MVP.
 
 Clinical versions and audit events serve different purposes and must
 not be treated as interchangeable.
