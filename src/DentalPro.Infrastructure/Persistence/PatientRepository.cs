@@ -2,6 +2,7 @@ using DentalPro.Application.Patients;
 using DentalPro.Domain.Patients;
 using DentalPro.Infrastructure.Persistence.Models;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace DentalPro.Infrastructure.Persistence;
 
@@ -61,7 +62,42 @@ public sealed class PatientRepository(DentalProDbContext dbContext) : IPatientRe
         medicalRecordRow.Odontogram = odontogramRow;
 
         dbContext.Patients.Add(patientRow);
-        await dbContext.SaveChangesAsync(cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
+        try
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch (DbUpdateException exception) when (IsDuplicatePatientDocument(exception))
+        {
+            throw new PatientDocumentAlreadyExistsException();
+        }
     }
+
+    public async Task<IReadOnlyList<PatientListItem>> ListAsync(CancellationToken cancellationToken = default)
+    {
+        return await dbContext.Patients
+            .AsNoTracking()
+            .OrderByDescending(patient => patient.CreatedAt)
+            .ThenBy(patient => patient.Id)
+            .Select(patient => new PatientListItem(
+                patient.Id,
+                patient.DocumentType,
+                patient.DocumentNumber,
+                patient.FirstName,
+                patient.LastName,
+                patient.DateOfBirth,
+                patient.Phone,
+                patient.Email,
+                patient.IsActive,
+                patient.CreatedAt,
+                patient.MedicalRecord.MedicalRecordNumber))
+            .ToListAsync(cancellationToken);
+    }
+
+    private static bool IsDuplicatePatientDocument(DbUpdateException exception) =>
+        exception.InnerException is PostgresException
+        {
+            SqlState: PostgresErrorCodes.UniqueViolation,
+            ConstraintName: "UX_Patients_DocumentType_DocumentNumber"
+        };
 }
