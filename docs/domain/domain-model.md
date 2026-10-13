@@ -38,7 +38,7 @@ Responsibilities:
 
 - Maintain personal identification information.
 - Maintain contact information.
-- Provide access to the patient's medical record.
+- Own exactly one MedicalRecord, created with the Patient.
 - Serve as the owner of the patient's appointment history.
 
 Attributes:
@@ -56,36 +56,30 @@ Attributes:
 - CreatedAt
 - UpdatedAt
 
-
 Relationships:
 
 - A Patient can have zero or many Appointments.
 - A Patient has exactly one MedicalRecord.
-- A Patient has one Odontogram through the MedicalRecord.
+- The MedicalRecord has exactly one Odontogram.
 
 Business rules:
 
-- DocumentType and DocumentNumber identify the patient from a
-  business perspective.
-- The combination of DocumentType and DocumentNumber must be unique.
+- DocumentType and DocumentNumber identify the patient from a business perspective.
+- Their combination must be unique in persistence.
 - FirstName and LastName are required.
 - DateOfBirth cannot be in the future.
-- A Patient is not physically deleted during normal operation.
-  Deactivation is handled through IsActive.
-- Patient data must not contain clinical information that belongs to
-  the MedicalRecord or other clinical domain entities.
-- Creation of a Patient should create the associated MedicalRecord
-  and Odontogram as part of the same transactional operation.
+- A Patient is not physically deleted during normal operation. Deactivation is handled through IsActive.
+- Patient data must not contain clinical information that belongs to the MedicalRecord or other clinical entities.
+- Creating a Patient creates its MedicalRecord and empty Odontogram as one domain set and one transactional persistence operation.
+- Creation audit is required by the MVP but remains pending; no complete audit subsystem is included in this slice.
 
-MVP scope: Patient and MedicalRecord creation are included. The Odontogram
-created for the MVP uses the simplified scope defined below.
+MVP scope: Patient, MedicalRecord and an initially empty Odontogram are created together. No individual dental-piece rows are created in this slice.
 
 Future relationship:
 
 - A Patient may optionally be associated with a User account.
 - A Patient User account is assigned the Patient role.
 - Patient users can only access resources belonging to themselves.
-
 ### Appointment
 
 Represents a scheduled appointment between a patient and a dentist.
@@ -129,52 +123,40 @@ Business rules:
 
 ### MedicalRecord
 
-Represents the longitudinal clinical record of a patient within the clinic.
-
-The MedicalRecord is the unique clinical record associated with a patient
-within the clinic. It provides the chronological structure for recording
-clinical care and related information.
-
-Responsibilities:
-
-- Maintain the patient's longitudinal clinical information.
-- Provide a chronological record of clinical care.
-- Associate clinical information with the responsible healthcare professional.
-- Preserve the integrity and traceability of clinical information.
-- Provide controlled access to clinical information.
-- Support the Odontogram and future clinical documents, consents and medical images.
+Represents the longitudinal clinical record of a patient within the clinic. Each Patient has exactly one MedicalRecord, created together with the Patient.
 
 Attributes:
 
-- Id
+- Id: internal technical Guid.
 - PatientId
-- MedicalRecordNumber
+- MedicalRecordNumber: required business identifier once assigned; a positive sequential long, globally unique and permanent.
 - StartedAt
-- LastClinicalActivityAt
+- LastClinicalActivityAt (nullable; null until the first clinical activity)
 - CreatedAt
 - UpdatedAt
 
 Relationships:
 
 - Belongs to exactly one Patient.
-- Contains zero or many ClinicalEntries.
-- Contains zero or many Treatments.
 - Contains exactly one Odontogram.
-- May contain zero or many Consents.
-- May contain zero or many MedicalImages.
-- May contain zero or many ClinicalDocuments.
+- Contains zero or many ClinicalEntries and Treatments.
+- May contain future Consents, MedicalImages and ClinicalDocuments.
 
 Business rules:
 
-- A Patient has exactly one MedicalRecord within the clinic.
-- The MedicalRecord must be uniquely associated with its Patient.
-- Clinical information must be recorded chronologically.
-- Previously recorded clinical information must not be silently overwritten.
+- A Patient has exactly one MedicalRecord within the clinic, and it must be uniquely associated with that Patient.
+- MedicalRecordNumber is globally unique for one DentalPro installation, is assigned by PostgreSQL in the future persistence implementation, and cannot be changed after assignment. Domain does not generate it.
+- The numeric value is stored as long. Presentation uses the prefix HC- and at least six digits (for example, HC-000123); prefix and zero-padding are not stored in the domain value.
+- During domain creation, before persistence assigns the number, the number is explicitly unassigned (nullable long). It cannot be assigned a non-positive value or reassigned.
+- StartedAt and CreatedAt are set to the same UTC instant at creation. UpdatedAt starts at that instant and changes when the record is modified. LastClinicalActivityAt starts null.
+- Clinical information must be recorded chronologically. Previously recorded clinical information must not be silently overwritten.
 - Modifications to clinical information must remain traceable.
-- Access to clinical information must be restricted to authorized users.
+- Clinical records are not physically deleted through normal operations.
 - The MedicalRecord must remain recoverable for the applicable retention period.
 - The MedicalRecord must support future interoperability requirements.
+- Access to clinical information must be restricted to authorized users.
 
+MVP scope: Creation of the MedicalRecord and empty Odontogram is included. Clinical entries, detailed clinical history, and assignment of the database-generated MedicalRecordNumber during persistence are handled in their respective implementation steps.
 ### ClinicalEntry
 
 Represents an individual clinical event, observation, or intervention
@@ -351,7 +333,7 @@ ClinicalEntries, Treatments and their associated history.
 
 Attributes:
 
-- Id
+- Id: internal technical Guid.
 - MedicalRecordId
 - CreatedAt
 - UpdatedAt
@@ -387,10 +369,7 @@ Business rules:
 - The current Odontogram state must be consistent with the latest valid
   ToothStateHistory for each dental piece.
 
-MVP scope: The initial implementation covers permanent dentition using FDI
-notation and basic tooth states. It does not include tooth surface detail.
-Changes to tooth state remain historically traceable through the existing
-ToothStateHistory concept.
+MVP scope: In this first patient-creation slice, the Odontogram is created empty with no OdontogramTooth rows. Later MVP work covers permanent dentition using FDI notation and basic tooth states, with changes traceable through ToothStateHistory. Tooth surface detail is excluded.
 
 ### OdontogramTooth
 
@@ -949,11 +928,7 @@ Auditability is implemented through two complementary mechanisms:
 - AuditEvent records who performed an operation, when it occurred, what
   entity was affected, and additional contextual information.
 
-MVP audit scope includes patient creation, update and deactivation;
-appointment creation, update and cancellation; clinical record changes;
-ClinicalEntry and Treatment creation or update; Odontogram changes; and
-authentication events. Every read operation does not need an AuditEvent in
-the MVP.
+MVP audit scope includes patient creation, update and deactivation; appointment creation, update and cancellation; clinical record changes; ClinicalEntry and Treatment creation or update; Odontogram changes; and authentication events. Patient-creation audit remains a documented requirement pending implementation; the initial patient-creation slice does not implement a complete audit subsystem. Every read operation does not need an AuditEvent in the MVP.
 
 Clinical versions and audit events serve different purposes and must
 not be treated as interchangeable.

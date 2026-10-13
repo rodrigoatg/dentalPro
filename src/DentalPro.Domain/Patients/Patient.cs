@@ -12,7 +12,8 @@ public sealed class Patient
         string? phone,
         string? email,
         string? address,
-        DateTimeOffset createdAt)
+        DateTimeOffset createdAt,
+        MedicalRecord medicalRecord)
     {
         Id = id;
         DocumentType = documentType;
@@ -26,31 +27,22 @@ public sealed class Patient
         IsActive = true;
         CreatedAt = createdAt;
         UpdatedAt = createdAt;
+        MedicalRecord = medicalRecord;
     }
 
     public Guid Id { get; private set; }
-
     public string DocumentType { get; private set; }
-
     public string DocumentNumber { get; private set; }
-
     public string FirstName { get; private set; }
-
     public string LastName { get; private set; }
-
     public DateOnly? DateOfBirth { get; private set; }
-
     public string? Phone { get; private set; }
-
     public string? Email { get; private set; }
-
     public string? Address { get; private set; }
-
     public bool IsActive { get; private set; }
-
     public DateTimeOffset CreatedAt { get; private set; }
-
     public DateTimeOffset UpdatedAt { get; private set; }
+    public MedicalRecord MedicalRecord { get; }
 
     public static Patient Create(
         string documentType,
@@ -70,10 +62,12 @@ public sealed class Patient
             throw new ArgumentException("Date of birth cannot be in the future.", nameof(dateOfBirth));
         }
 
+        var patientId = Guid.NewGuid();
         var now = DateTimeOffset.UtcNow;
+        var medicalRecord = MedicalRecord.Create(patientId, now);
 
         return new Patient(
-            Guid.NewGuid(),
+            patientId,
             documentType,
             documentNumber,
             firstName,
@@ -82,7 +76,8 @@ public sealed class Patient
             phone,
             email,
             address,
-            now);
+            now,
+            medicalRecord);
     }
 
     public void Deactivate()
