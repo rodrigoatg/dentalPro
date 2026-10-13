@@ -1,0 +1,223 @@
+<div class="page-heading">
+  <div>
+    <span class="eyebrow">GESTI&Oacute;N DE CL&Iacute;NICA</span>
+    <h1>Pacientes</h1>
+    <p>Consult&aacute; y administr&aacute; la informaci&oacute;n de tus pacientes.</p>
+  </div>
+  <button class="button button-primary" type="button" (click)="openForm()">
+    <span class="button-plus" aria-hidden="true">+</span>Registrar paciente
+  </button>
+</div>
+@if (successMessage()) {
+  <div class="notice notice-success" role="status">
+    <span class="notice-icon">OK</span><span>{{ successMessage() }}</span
+    ><button type="button" aria-label="Cerrar mensaje" (click)="successMessage.set('')">
+      &times;
+    </button>
+  </div>
+}
+@if (loadError()) {
+  <div class="notice notice-error" role="alert">
+    <span>{{ loadError() }}</span
+    ><button class="retry-button" type="button" (click)="loadPatients()">Reintentar</button>
+  </div>
+}
+<section class="patient-panel">
+  <div class="panel-top">
+    <div>
+      <h2>Todos los pacientes</h2>
+      <p>Listado general de pacientes y sus historias cl&iacute;nicas</p>
+    </div>
+    <div class="patient-count">
+      <span class="count-dot"></span
+      >{{ loading() ? 'Actualizando&hellip;' : patients().length + ' registrados' }}
+    </div>
+  </div>
+  @if (loading()) {
+    <div class="loading-state">
+      <span class="spinner"></span><span>Cargando pacientes&hellip;</span>
+    </div>
+  } @else if (patients().length === 0 && !loadError()) {
+    <div class="empty-state">
+      <div class="empty-icon"><span>P</span><i>+</i></div>
+      <h3>Todav&iacute;a no hay pacientes</h3>
+      <p>Cuando registres el primero, su informaci&oacute;n aparecer&aacute; en este listado.</p>
+      <button class="button button-primary" type="button" (click)="openForm()">
+        Registrar primer paciente
+      </button>
+    </div>
+  } @else if (patients().length > 0) {
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>PACIENTE</th>
+            <th>DOCUMENTO</th>
+            <th>HISTORIA CL&Iacute;NICA</th>
+            <th>CONTACTO</th>
+            <th>ESTADO</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (patient of patients(); track patient.id) {
+            <tr>
+              <td>
+                <div class="patient-cell">
+                  <span class="avatar">{{ initials(patient) }}</span
+                  ><span class="patient-name"
+                    ><strong>{{ patient.lastName }}, {{ patient.firstName }}</strong
+                    ><small>Alta {{ formatDate(patient.createdAt.slice(0, 10)) }}</small></span
+                  >
+                </div>
+              </td>
+              <td>
+                <span class="document-type">{{ patient.documentType }}</span
+                ><span class="document-number">{{ patient.documentNumber }}</span>
+              </td>
+              <td>
+                <span class="record-number">{{
+                  medicalRecordLabel(patient.medicalRecordNumber)
+                }}</span>
+              </td>
+              <td>
+                <span class="contact-main">{{
+                  patient.phone || patient.email || 'Sin contacto'
+                }}</span
+                ><small class="contact-secondary">{{
+                  patient.phone && patient.email ? patient.email : ''
+                }}</small>
+              </td>
+              <td>
+                <span class="status-pill" [class.inactive]="!patient.isActive"
+                  ><i></i>{{ patient.isActive ? 'Activo' : 'Inactivo' }}</span
+                >
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+  <div class="panel-footer">
+    <span>Los datos se obtienen del sistema DentalPro.</span
+    ><button type="button" (click)="loadPatients()" [disabled]="loading()">
+      <span aria-hidden="true">&#8635;</span>Actualizar
+    </button>
+  </div>
+</section>
+@if (formVisible()) {
+  <div class="modal-backdrop" (click)="closeForm()" (keydown.escape)="closeForm()">
+    <section
+      class="patient-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="patient-form-title"
+      (click)="$event.stopPropagation()"
+    >
+      <div class="modal-heading">
+        <div>
+          <span class="eyebrow">NUEVO REGISTRO</span>
+          <h2 id="patient-form-title">Registrar paciente</h2>
+          <p>Complet&aacute; los datos para crear su historia cl&iacute;nica.</p>
+        </div>
+        <button class="close-button" type="button" aria-label="Cerrar" (click)="closeForm()">
+          &times;
+        </button>
+      </div>
+      <form [formGroup]="patientForm" (ngSubmit)="submit()" novalidate>
+        <div class="form-section-title">
+          <span class="step-number">1</span>
+          <div>
+            <strong>Identificaci&oacute;n</strong><small>Datos principales del paciente</small>
+          </div>
+        </div>
+        <div class="form-grid">
+          <label class="field"
+            ><span>Tipo de documento <b>*</b></span
+            ><input formControlName="documentType" placeholder="Ej. DNI" autocomplete="off" />
+            @if (
+              patientForm.controls.documentType.touched && patientForm.controls.documentType.invalid
+            ) {
+              <small class="field-error">Este campo es obligatorio.</small>
+            }
+          </label>
+          <label class="field"
+            ><span>N&uacute;mero de documento <b>*</b></span
+            ><input
+              formControlName="documentNumber"
+              placeholder="N&uacute;mero de documento"
+              autocomplete="off"
+            />
+            @if (
+              patientForm.controls.documentNumber.touched &&
+              patientForm.controls.documentNumber.invalid
+            ) {
+              <small class="field-error">Este campo es obligatorio.</small>
+            }
+          </label>
+          <label class="field"
+            ><span>Nombre <b>*</b></span
+            ><input formControlName="firstName" placeholder="Nombre" autocomplete="given-name" />
+            @if (patientForm.controls.firstName.touched && patientForm.controls.firstName.invalid) {
+              <small class="field-error">Ingres&aacute; el nombre.</small>
+            }
+          </label>
+          <label class="field"
+            ><span>Apellido <b>*</b></span
+            ><input formControlName="lastName" placeholder="Apellido" autocomplete="family-name" />
+            @if (patientForm.controls.lastName.touched && patientForm.controls.lastName.invalid) {
+              <small class="field-error">Ingres&aacute; el apellido.</small>
+            }
+          </label>
+          <label class="field"
+            ><span>Fecha de nacimiento</span
+            ><input formControlName="dateOfBirth" type="date" [max]="today"
+          /></label>
+        </div>
+        <div class="form-section-title contact-title">
+          <span class="step-number">2</span>
+          <div>
+            <strong>Contacto <small class="optional-label">OPCIONAL</small></strong
+            ><small>Pod&eacute;s completarlo ahora o m&aacute;s adelante</small>
+          </div>
+        </div>
+        <div class="form-grid">
+          <label class="field"
+            ><span>Tel&eacute;fono</span
+            ><input
+              formControlName="phone"
+              placeholder="C&oacute;digo de &aacute;rea y n&uacute;mero"
+              autocomplete="tel"
+          /></label>
+          <label class="field"
+            ><span>Email</span
+            ><input formControlName="email" placeholder="correo@ejemplo.com" autocomplete="email"
+          /></label>
+          <label class="field field-full"
+            ><span>Domicilio</span
+            ><input
+              formControlName="address"
+              placeholder="Calle, n&uacute;mero, localidad"
+              autocomplete="street-address"
+          /></label>
+        </div>
+        @if (submitError()) {
+          <div class="form-error" role="alert">{{ submitError() }}</div>
+        }
+        <div class="modal-actions">
+          <button
+            class="button button-quiet"
+            type="button"
+            (click)="closeForm()"
+            [disabled]="saving()"
+          >
+            Cancelar</button
+          ><button class="button button-primary" type="submit" [disabled]="saving()">
+            <span>{{ saving() ? 'Guardando&hellip;' : 'Crear paciente' }}</span
+            ><span aria-hidden="true">&rarr;</span>
+          </button>
+        </div>
+      </form>
+    </section>
+  </div>
+}

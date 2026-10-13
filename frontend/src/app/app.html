@@ -1,0 +1,90 @@
+<div class="app-shell">
+  <aside class="sidebar">
+    <a class="brand" routerLink="/dashboard" aria-label="DentalPro, inicio"
+      ><span class="brand-mark" aria-hidden="true"
+        ><svg viewBox="0 0 36 36" fill="none">
+          <path
+            d="M18 5.5c-3-2-7.3-1.4-9.2 1.5-2.4 3.6-.6 7.8.7 11.2 1.5 4.1 2 10.3 4.5 10.9 2.3.5 1.6-5.8 4-5.8s1.7 6.3 4 5.8c2.5-.6 3-6.8 4.5-10.9 1.3-3.4 3.1-7.6.7-11.2C25.3 4.1 21 3.5 18 5.5Z"
+            fill="white"
+          />
+          <path
+            d="M12 10.5c1.5-1.5 3.2-1.8 4.3-1.3"
+            stroke="#A8E1D8"
+            stroke-width="1.8"
+            stroke-linecap="round"
+          /></svg></span
+      ><span class="brand-text"
+        ><strong>Dental<span>Pro</span></strong
+        ><small>GESTI&Oacute;N ODONTOL&Oacute;GICA</small></span
+      ></a
+    >
+    <div class="nav-section-label">MEN&Uacute; PRINCIPAL</div>
+    <nav class="main-nav" aria-label="Navegaci&oacute;n principal">
+      <a
+        routerLink="/dashboard"
+        routerLinkActive="active"
+        [routerLinkActiveOptions]="{ exact: true }"
+        ><span class="nav-icon"
+          ><svg viewBox="0 0 20 20" fill="none">
+            <rect x="2.5" y="2.5" width="6" height="6" rx="1.5" />
+            <rect x="11.5" y="2.5" width="6" height="6" rx="1.5" />
+            <rect x="2.5" y="11.5" width="6" height="6" rx="1.5" />
+            <rect x="11.5" y="11.5" width="6" height="6" rx="1.5" /></svg></span
+        ><span>Dashboard</span></a
+      >
+      <a routerLink="/patients" routerLinkActive="active"
+        ><span class="nav-icon"
+          ><svg viewBox="0 0 20 20" fill="none">
+            <circle cx="10" cy="6" r="3.1" />
+            <path
+              d="M3.6 17c.4-3.3 2.8-5.1 6.4-5.1s6 1.8 6.4 5.1"
+              stroke-linecap="round"
+            /></svg></span
+        ><span>Pacientes</span><span class="nav-arrow">&rsaquo;</span></a
+      >
+    </nav>
+    <div class="nav-section-label modules-label">M&Oacute;DULOS CL&Iacute;NICOS</div>
+    <div class="pending-nav">
+      <span class="pending-icon">T</span><span>Turnos</span><small>PENDIENTE</small>
+    </div>
+    <div class="pending-nav">
+      <span class="pending-icon">T</span><span>Tratamientos</span><small>PENDIENTE</small>
+    </div>
+    <div class="pending-nav">
+      <span class="pending-icon">O</span><span>Odontograma</span><small>PENDIENTE</small>
+    </div>
+    <div class="sidebar-bottom">
+      <div class="help-card">
+        <div class="help-spark">+</div>
+        <strong>DentalPro MVP</strong>
+        <p>Una gesti&oacute;n m&aacute;s simple para tu consultorio.</p>
+        <span class="version-tag">VERSI&Oacute;N DEMO</span>
+      </div>
+      <div class="sidebar-footer">
+        <span class="online-dot"></span><span>Entorno de demostraci&oacute;n</span
+        ><span class="footer-version">v1.0</span>
+      </div>
+    </div>
+  </aside>
+  <main class="main-area">
+    <header class="topbar">
+      <div class="breadcrumbs">
+        <span>DentalPro</span><i>/</i><strong>{{ sectionTitle() }}</strong>
+      </div>
+      <div class="topbar-right">
+        <span class="today-label">{{ todayLabel }}</span
+        ><span class="topbar-divider"></span>
+        <div class="user-chip">
+          <span class="user-avatar">DP</span
+          ><span class="user-name"><strong>Demo</strong><small>Consultorio</small></span
+          ><span class="user-chevron">&#8964;</span>
+        </div>
+      </div>
+    </header>
+    <div class="page-content"><router-outlet /></div>
+    <footer class="main-footer">
+      <span>&copy; {{ year }} DentalPro</span
+      ><span>Gesti&oacute;n cl&iacute;nica, hecha simple.</span>
+    </footer>
+  </main>
+</div>

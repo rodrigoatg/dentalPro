@@ -1,0 +1,117 @@
+<section class="welcome-card">
+  <div class="welcome-copy">
+    <span class="eyebrow">TU ESPACIO DE TRABAJO</span>
+    <h1>Una cl&iacute;nica organizada,<br /><span>paciente por paciente.</span></h1>
+    <p>Gestion&aacute; la informaci&oacute;n de tu consultorio desde un solo lugar.</p>
+    <a class="button button-primary" routerLink="/patients"
+      ><span class="button-plus" aria-hidden="true">+</span>Registrar paciente</a
+    >
+  </div>
+  <div class="welcome-art" aria-hidden="true">
+    <div class="art-orbit orbit-one"></div>
+    <div class="art-orbit orbit-two"></div>
+    <div class="art-glow"></div>
+    <svg
+      class="tooth-illustration"
+      viewBox="0 0 190 210"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M95 28C77 16 51 20 39 37C24 58 34 81 40 101C48 127 53 177 70 184C82 189 83 155 95 155C107 155 108 189 120 184C137 177 142 127 150 101C156 81 166 58 151 37C139 20 113 16 95 28Z"
+        fill="white"
+        stroke="#C7D9F1"
+        stroke-width="5"
+      />
+      <path d="M60 48C69 40 81 39 88 44" stroke="#E8F1FB" stroke-width="7" stroke-linecap="round" />
+      <circle cx="143" cy="42" r="7" fill="#65C8BC" />
+      <circle cx="38" cy="123" r="5" fill="#F0BD73" />
+    </svg>
+    <div class="art-label"><span class="art-label-dot"></span>Cuidado que conecta</div>
+  </div>
+</section>
+<div class="section-heading dashboard-section-heading">
+  <div>
+    <span class="eyebrow">VISTA GENERAL</span>
+    <h2>Tu cl&iacute;nica hoy</h2>
+  </div>
+  <span class="updated-label"><span class="live-dot"></span>Informaci&oacute;n actualizada</span>
+</div>
+<section class="metric-grid" aria-label="Indicadores de la cl&iacute;nica">
+  <article class="metric-card patients-metric">
+    <div class="metric-topline">
+      <span class="metric-icon icon-patients">P</span><span class="metric-chip">EN SISTEMA</span>
+    </div>
+    <p class="metric-label">Pacientes registrados</p>
+    @if (loading()) {
+      <div class="metric-skeleton" aria-label="Cargando"></div>
+    } @else if (error()) {
+      <p class="metric-error">{{ error() }}</p>
+    } @else {
+      <p class="metric-number">{{ patientCount() }}</p>
+    }
+    <a routerLink="/patients" class="metric-link"
+      >Ver pacientes <span aria-hidden="true">&rarr;</span></a
+    >
+  </article>
+  <article class="metric-card pending-metric">
+    <div class="metric-topline">
+      <span class="metric-icon icon-calendar">A</span
+      ><span class="pending-chip">PR&Oacute;XIMAMENTE</span>
+    </div>
+    <p class="metric-label">Agenda de turnos</p>
+    <p class="metric-number metric-muted">Pendiente</p>
+    <span class="metric-note">El m&oacute;dulo todav&iacute;a no est&aacute; disponible</span>
+  </article>
+  <article class="metric-card pending-metric">
+    <div class="metric-topline">
+      <span class="metric-icon icon-treatment">T</span
+      ><span class="pending-chip">PR&Oacute;XIMAMENTE</span>
+    </div>
+    <p class="metric-label">Tratamientos</p>
+    <p class="metric-number metric-muted">Pendiente</p>
+    <span class="metric-note">El m&oacute;dulo todav&iacute;a no est&aacute; disponible</span>
+  </article>
+</section>
+<section class="bottom-grid">
+  <article class="next-step-card">
+    <div class="next-step-copy">
+      <span class="eyebrow">PRIMER PASO</span>
+      <h2>Empez&aacute; por tus pacientes</h2>
+      <p>
+        Registr&aacute; sus datos y cre&aacute; su historia cl&iacute;nica para tener toda la
+        informaci&oacute;n esencial a mano.
+      </p>
+      <a routerLink="/patients" class="text-link"
+        >Ir a pacientes <span aria-hidden="true">&rarr;</span></a
+      >
+    </div>
+    <div class="next-step-icon" aria-hidden="true">
+      <svg viewBox="0 0 64 64" fill="none">
+        <circle cx="32" cy="32" r="29" fill="#E9F5F3" />
+        <path d="M32 18v28M18 32h28" stroke="#287C78" stroke-width="4" stroke-linecap="round" />
+      </svg>
+    </div>
+  </article>
+  <article class="module-card">
+    <div class="module-heading">
+      <span class="module-heading-icon">+</span>
+      <div>
+        <span class="eyebrow">EN CAMINO</span>
+        <h3>M&aacute;s herramientas, pronto</h3>
+      </div>
+    </div>
+    <div class="module-row">
+      <span class="module-row-icon">T</span><span>Turnos y agenda</span
+      ><span class="module-status">Pendiente</span>
+    </div>
+    <div class="module-row">
+      <span class="module-row-icon">O</span><span>Odontograma</span
+      ><span class="module-status">Pendiente</span>
+    </div>
+    <div class="module-row">
+      <span class="module-row-icon">T</span><span>Tratamientos</span
+      ><span class="module-status">Pendiente</span>
+    </div>
+  </article>
+</section>
