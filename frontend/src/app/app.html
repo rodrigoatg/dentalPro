@@ -1,3 +1,4 @@
+@if (auth.isAuthenticated()) {
 <div class="app-shell">
   <aside class="sidebar">
     <a class="brand" routerLink="/dashboard" aria-label="DentalPro, inicio"
@@ -32,6 +33,7 @@
             <rect x="11.5" y="11.5" width="6" height="6" rx="1.5" /></svg></span
         ><span>Dashboard</span></a
       >
+      @if (auth.hasPermission('patients.view')) {
       <a routerLink="/patients" routerLinkActive="active"
         ><span class="nav-icon"
           ><svg viewBox="0 0 20 20" fill="none">
@@ -42,6 +44,12 @@
             /></svg></span
         ><span>Pacientes</span><span class="nav-arrow">&rsaquo;</span></a
       >
+      }
+      @if (auth.hasPermission('users.view') || auth.hasPermission('roles.view') || auth.hasPermission('permissions.view')) {
+        <a routerLink="/admin" routerLinkActive="active"
+          ><span class="nav-icon" aria-hidden="true">A</span><span>Administración</span><span class="nav-arrow">&rsaquo;</span></a
+        >
+      }
     </nav>
     <div class="nav-section-label modules-label">M&Oacute;DULOS CL&Iacute;NICOS</div>
     <div class="pending-nav">
@@ -74,10 +82,16 @@
       <div class="topbar-right">
         <span class="today-label">{{ todayLabel }}</span
         ><span class="topbar-divider"></span>
+        @if (auth.authorizationMessage()) {
+          <div class="authorization-alert" role="alert">
+            <span>{{ auth.authorizationMessage() }}</span>
+            <button type="button" aria-label="Cerrar mensaje" (click)="auth.dismissAuthorizationMessage()">&times;</button>
+          </div>
+        }
         <div class="user-chip">
-          <span class="user-avatar">DP</span
-          ><span class="user-name"><strong>Demo</strong><small>Consultorio</small></span
-          ><span class="user-chevron">&#8964;</span>
+          <span class="user-avatar">{{ initials() }}</span
+          ><span class="user-name"><strong>{{ displayName() }}</strong><small>{{ auth.user()?.roles?.join(', ') }}</small></span>
+          <button class="logout-button" type="button" (click)="logout()">Salir</button>
         </div>
       </div>
     </header>
@@ -88,3 +102,6 @@
     </footer>
   </main>
 </div>
+} @else {
+  <router-outlet />
+}

@@ -108,14 +108,23 @@ posterior cuando corresponda.
 ### FR-005 [MVP] — Autenticación, autorización y RBAC
 
 El sistema deberá autenticar usuarios con credenciales individuales y
-restringir las funcionalidades y datos según los permisos de sus roles.
-Deberá aplicar autorización en backend y control de acceso basado en roles
-(RBAC).
+restringir las funcionalidades y datos según permisos configurables por rol.
+Un usuario podrá tener varios roles y sus permisos efectivos serán la unión
+de los permisos asignados a esos roles. No existirán permisos individuales
+por usuario. La API deberá comprobar las asignaciones actuales en el servidor
+en cada solicitud; los cambios deberán regir desde la siguiente solicitud,
+sin un nuevo inicio de sesión.
 
 ### FR-006 [MVP] — Administración de usuarios, roles y horarios
 
-El sistema deberá permitir gestionar cuentas de usuario, roles y permisos,
-además de configurar los horarios de atención disponibles del consultorio.
+Solamente Administrator podrá crear usuarios, cambiar su estado, asignar o
+quitar roles y gestionar permisos de roles. Los roles iniciales serán
+Administrator, Dentist y Receptionist. Los permisos administrativos
+protegidos no podrán quitarse de Administrator mediante la API. El sistema
+deberá impedir que el último Administrator activo pierda ese rol o sea
+desactivado. La configuración de horarios de atención se gestionará como
+parte de la agenda y fuera del catálogo RBAC hasta que exista el endpoint
+correspondiente.
 
 ### FR-007 [MVP] — Auditoría de operaciones relevantes
 
@@ -180,6 +189,12 @@ las sesiones. Estas medidas forman parte del MVP.
 
 La autenticación de segundo factor (2FA), incluso para dispositivos no
 reconocidos, pertenece al Future Roadmap y no es requisito del MVP.
+
+Los tokens previamente emitidos deberán dejar de ser válidos cuando se
+desactive una cuenta o cambien sus roles. La API deberá fallar de forma
+cerrada si no puede verificar el estado actual del usuario. Los permisos
+efectivos no se tomarán de claims del token y se consultarán desde las
+asignaciones actuales de roles y permisos.
 
 ### RNF-02 — Disponibilidad
 

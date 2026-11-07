@@ -1,0 +1,37 @@
+<main class="login-page">
+  <section class="login-card" aria-labelledby="login-title">
+    <a class="brand" routerLink="/login" aria-label="DentalPro">
+      <span class="brand-mark" aria-hidden="true">D</span>
+      <span><strong>Dental<span>Pro</span></strong><small>GESTIÓN ODONTOLÓGICA</small></span>
+    </a>
+    <div class="login-copy">
+      <span class="eyebrow">BIENVENIDO/A</span>
+      <h1 id="login-title">Ingresá a tu espacio de trabajo</h1>
+      <p>Usá las credenciales de tu cuenta DentalPro.</p>
+    </div>
+    <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      <label class="field">
+        <span>Usuario</span>
+        <input formControlName="userName" autocomplete="username" autofocus />
+        @if (form.controls.userName.touched && form.controls.userName.invalid) {
+          <small class="field-error">Ingresá tu usuario.</small>
+        }
+      </label>
+      <label class="field">
+        <span>Contraseña</span>
+        <input type="password" formControlName="password" autocomplete="current-password" />
+        @if (form.controls.password.touched && form.controls.password.invalid) {
+          <small class="field-error">Ingresá tu contraseña.</small>
+        }
+      </label>
+      @if (errorMessage()) {
+        <div class="error-message" role="alert">{{ errorMessage() }}</div>
+      }
+      <button class="submit-button" type="submit" [disabled]="submitting()">
+        {{ submitting() ? 'Ingresando…' : 'Ingresar' }}
+        <span aria-hidden="true">→</span>
+      </button>
+    </form>
+    <p class="login-note">El acceso es administrado por tu clínica. No hay registro público.</p>
+  </section>
+</main>

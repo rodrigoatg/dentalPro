@@ -1,4 +1,6 @@
 using DentalPro.Application.Patients;
+using DentalPro.Application.AccessControl;
+using DentalPro.Api.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace DentalPro.Api.Patients;
@@ -7,8 +9,8 @@ public static class PatientEndpoints
 {
     public static IEndpointRouteBuilder MapPatientEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        endpoints.MapPost("/api/patients", CreateAsync);
-        endpoints.MapGet("/api/patients", ListAsync);
+        endpoints.MapPost("/api/patients", CreateAsync).RequirePermission(PermissionCatalog.PatientsCreate);
+        endpoints.MapGet("/api/patients", ListAsync).RequirePermission(PermissionCatalog.PatientsView);
         return endpoints;
     }
 

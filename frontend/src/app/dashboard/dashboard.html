@@ -3,9 +3,9 @@
     <span class="eyebrow">TU ESPACIO DE TRABAJO</span>
     <h1>Una cl&iacute;nica organizada,<br /><span>paciente por paciente.</span></h1>
     <p>Gestion&aacute; la informaci&oacute;n de tu consultorio desde un solo lugar.</p>
-    <a class="button button-primary" routerLink="/patients"
+    @if (canCreatePatients()) { <a class="button button-primary" routerLink="/patients"
       ><span class="button-plus" aria-hidden="true">+</span>Registrar paciente</a
-    >
+    > }
   </div>
   <div class="welcome-art" aria-hidden="true">
     <div class="art-orbit orbit-one"></div>
@@ -38,6 +38,7 @@
   <span class="updated-label"><span class="live-dot"></span>Informaci&oacute;n actualizada</span>
 </div>
 <section class="metric-grid" aria-label="Indicadores de la cl&iacute;nica">
+  @if (canViewPatients()) {
   <article class="metric-card patients-metric">
     <div class="metric-topline">
       <span class="metric-icon icon-patients">P</span><span class="metric-chip">EN SISTEMA</span>
@@ -54,6 +55,9 @@
       >Ver pacientes <span aria-hidden="true">&rarr;</span></a
     >
   </article>
+  } @else {
+  <article class="metric-card patients-metric"><p class="metric-label">Pacientes</p><p class="metric-note">No tenés acceso a esta sección.</p></article>
+  }
   <article class="metric-card pending-metric">
     <div class="metric-topline">
       <span class="metric-icon icon-calendar">A</span
@@ -82,9 +86,9 @@
         Registr&aacute; sus datos y cre&aacute; su historia cl&iacute;nica para tener toda la
         informaci&oacute;n esencial a mano.
       </p>
-      <a routerLink="/patients" class="text-link"
+      @if (canViewPatients()) { <a routerLink="/patients" class="text-link"
         >Ir a pacientes <span aria-hidden="true">&rarr;</span></a
-      >
+      > }
     </div>
     <div class="next-step-icon" aria-hidden="true">
       <svg viewBox="0 0 64 64" fill="none">

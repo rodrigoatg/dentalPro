@@ -14,10 +14,36 @@ En una terminal PowerShell, configur&aacute; la cadena de conexi&oacute;n local 
 
 ```powershell
 $env:ConnectionStrings__DentalPro = "Host=localhost;Port=5432;Database=dentalpro_dev;Username=<usuario>;Password=<clave>"
+$env:Jwt__SigningKey = [Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
 dotnet run --project src/DentalPro.Api --launch-profile http
 ```
 
 La API queda disponible en `http://localhost:5010`.
+
+La clave JWT se genera para la sesión local y no se guarda en archivos del
+repositorio. La expiración se configura con `Jwt:AccessTokenLifetimeMinutes`
+en `appsettings.json` y puede sobrescribirse mediante
+`Jwt__AccessTokenLifetimeMinutes`. El login requiere que la migración aditiva
+de Identity/RBAC haya sido aplicada previamente por el proceso de despliegue;
+el arranque de la API no ejecuta migraciones.
+
+Antes del primer inicio, ejecutá el bootstrap operativo una vez. La conexión,
+el nombre, la contraseña y los datos del primer administrador deben llegar por
+variables de entorno o un proveedor de secretos; no los agregues a archivos
+versionados:
+
+```powershell
+$env:SecurityBootstrap__InitialAdministrator__UserName = "admin"
+$env:SecurityBootstrap__InitialAdministrator__Password = "<contraseña-segura>"
+$env:SecurityBootstrap__InitialAdministrator__FirstName = "DentalPro"
+$env:SecurityBootstrap__InitialAdministrator__LastName = "Administrator"
+dotnet run --project src/DentalPro.Api -- --bootstrap-security
+```
+
+El comando crea roles y permisos idempotentemente y agrega el primer
+administrador solo si todavía no hay ninguno. No se ejecuta automáticamente
+al iniciar la API normal; luego del bootstrap, retir&aacute; las variables secretas
+del entorno y ejecut&aacute; la API de forma habitual.
 
 ## Iniciar frontend
 

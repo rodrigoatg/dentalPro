@@ -45,21 +45,17 @@ Responsabilidades:
 - Registrar observaciones clínicas.
 - Actualizar información clínica.
 
-### Administrativo
+### Administrator
 
 Responsabilidades:
 
-- Gestionar información financiera.
-- Consultar movimientos.
-- Generar reportes.
+- Crear y administrar cuentas de usuario.
+- Asignar y quitar roles.
+- Configurar los permisos asignados a roles, respetando los permisos
+  administrativos protegidos.
+- Configurar los horarios de atención del consultorio.
 
-### Administrador del sistema
-
-Responsabilidades:
-
-- Gestionar usuarios.
-- Gestionar roles.
-- Configurar horarios.
+Administrator no obtiene permisos clínicos por defecto.
 
 ---
 
@@ -68,7 +64,8 @@ Responsabilidades:
 El MVP inicial incluye:
 
 1. Authentication and authorization with individual credentials, password hashing, RBAC, HTTPS and session expiration.
-2. User and role management for Receptionist, Dentist, Administrative and SystemAdministrator.
+2. User and role management for Administrator, Dentist and Receptionist,
+   including configurable role-permission assignments.
 3. Patient management.
 4. Appointment scheduling and agenda.
 5. Medical records with ClinicalEntry creation and versioning; previous versions remain preserved and accessible.
@@ -101,6 +98,13 @@ El sistema deberá contemplar:
 - HTTPS.
 - Auditoría de acciones relevantes.
 - Expiración de sesión.
+
+Los roles son Administrator, Dentist y Receptionist; un usuario puede tener
+varios. Los permisos se asignan exclusivamente a roles y los permisos
+efectivos de un usuario son la unión de las asignaciones de sus roles. No se
+asignan permisos individuales a usuarios. Los cambios de permisos se aplican
+en la solicitud siguiente sin exigir un nuevo inicio de sesión. La cuenta
+del último Administrator activo no puede perder el rol ni desactivarse.
 
 2FA is future roadmap scope and is not required for the MVP.
 

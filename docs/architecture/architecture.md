@@ -161,9 +161,20 @@ PostgreSQL
 
 ## 7. Authentication and Authorization
 
-Authentication will use individual user credentials.
+Authentication will use individual user credentials managed by ASP.NET Core
+Identity and JWT Bearer access tokens.
 
-The system will implement role-based access control (RBAC).
+Authorization will use configurable role-permission assignments. The initial
+roles are Administrator, Dentist and Receptionist. A user may have multiple
+roles; effective permissions are the union of permissions assigned to all
+current roles. Permissions are assigned only to roles, never directly to
+users.
+
+The permission catalog has one canonical definition in backend code. Stable
+permission codes identify capabilities; names and descriptions are mutable
+metadata. Only permissions corresponding to implemented API endpoints belong
+in the catalog. The initial catalog and role matrix are documented in
+`docs/domain/domain-model.md`.
 
 The backend will be responsible for enforcing authorization.
 
@@ -171,9 +182,46 @@ The frontend may hide functionality based on the user's
 permissions, but this must never be considered the primary
 security mechanism.
 
+The API requires authentication by default and permits anonymous access only
+for explicitly public endpoints such as login. It evaluates current
+role-permission assignments on each authorization decision; permission
+claims in a JWT are not authoritative. Permission changes apply to the next
+request, without a new sign-in. The MVP does not cache effective permissions.
+
+Deactivation or role changes invalidate earlier JWTs through per-request
+validation of the user's current active state and security stamp (or an
+equivalent security version). Validation errors fail closed. A change to
+role-permission assignments affects authorization immediately and does not
+depend on a token refresh.
+
+Protected administrative permissions are defined in backend code and cannot
+be removed from Administrator through normal API operations. The last active
+Administrator cannot be demoted or deactivated, including through concurrent
+administrative operations. The first Administrator is created through a
+secure, idempotent operational bootstrap, not a public endpoint.
+
 The MVP includes individual credentials, password hashing, backend
-authorization, RBAC, HTTPS and session/token expiration. Two-factor
-authentication (2FA) is future scope and is not required for the MVP.
+authorization, RBAC, HTTPS and session/token expiration. Angular keeps the
+access token in memory only; it does not use localStorage, sessionStorage or
+refresh tokens. Two-factor authentication (2FA) is future scope and is not
+required for the MVP.
+
+### RBAC responsibilities by layer
+
+- Domain owns the technology-independent Permission and RolePermission
+  concepts and their local invariants. It does not reference ASP.NET Core
+  Identity or Entity Framework Core. RoleId is an opaque Guid compatible
+  with the future Identity role key.
+- Application owns the code-defined permission catalog contract, effective
+  permission query contract, and role-permission assignment repository
+  contract. Application use cases enforce protected-permission and
+  last-Administrator rules when those account-management operations are
+  implemented.
+- Infrastructure will implement catalog seeding and persistence, resolve
+  Identity user/role membership, and query current effective permissions.
+- API will declare permission requirements on endpoints and delegate checks
+  to Application services. It will not contain permission assignment or
+  business-rule logic.
 
 ## 8. Security
 
@@ -182,7 +230,9 @@ The architecture must support:
 - HTTPS.
 - Password hashing.
 - JWT-based authentication.
-- RBAC.
+- RBAC with configurable permissions per role.
+- Immediate permission change effect and token revocation on user state or
+  role changes.
 - Audit logging.
 - Session/token expiration.
 - Future 2FA capability for unrecognized devices.

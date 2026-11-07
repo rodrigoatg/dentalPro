@@ -1,0 +1,94 @@
+<section class="page-heading">
+  <div><span class="eyebrow">CONFIGURACIÓN</span><h1>Administración</h1><p>Gestioná las cuentas y los accesos de la clínica.</p></div>
+</section>
+<nav class="admin-tabs" aria-label="Secciones de administración">
+  @if (canViewUsers) { <button [class.active]="activeTab() === 'users'" (click)="selectTab('users')">Usuarios</button> }
+  @if (canViewRoles) { <button [class.active]="activeTab() === 'roles'" (click)="selectTab('roles')">Roles y permisos</button> }
+  @if (canViewPermissions) { <button [class.active]="activeTab() === 'permissions'" (click)="selectTab('permissions')">Catálogo</button> }
+</nav>
+@if (errorMessage()) { <div class="notice notice-error" role="alert">{{ errorMessage() }}</div> }
+@if (successMessage()) { <div class="notice notice-success" role="status">{{ successMessage() }}</div> }
+
+@if (activeTab() === 'users') {
+  <section class="admin-panel">
+    <header class="panel-heading"><div><h2>Usuarios</h2><p>Creá cuentas y administrá sus roles y estado.</p></div>
+      @if (canCreateUsers) { <button class="button button-primary" (click)="openCreateForm()">+ Crear usuario</button> }
+    </header>
+    @if (loading()) { <div class="empty-state">Cargando usuarios…</div> }
+    @else if (users().length === 0) { <div class="empty-state">Todavía no hay usuarios para mostrar.</div> }
+    @else {
+      <div class="table-scroll"><table><thead><tr><th>CUENTA</th><th>ROLES</th><th>ESTADO</th><th>ALTA</th></tr></thead>
+        <tbody>@for (user of users(); track user.id) {
+          <tr><td><strong>{{ user.firstName }} {{ user.lastName }}</strong><small>{{ user.userName }} · {{ user.email || 'Sin email' }}</small></td>
+            <td><div class="role-checks">@for (role of roles(); track role.id) {
+              <label><input type="checkbox" [checked]="user.roles.includes(role.name)" [disabled]="!canEditUserRoles() || userBusy(user.id)"
+                (change)="toggleUserRole(user, role.name, $any($event.target).checked)" />{{ role.name }}</label>
+            }</div></td>
+            <td><span class="status" [class.inactive]="!user.isActive">{{ user.isActive ? 'Activo' : 'Inactivo' }}</span>
+              @if (canManageUserStatus) { <button class="text-button" [disabled]="userBusy(user.id)" (click)="toggleUserStatus(user)">{{ user.isActive ? 'Desactivar' : 'Activar' }}</button> }
+            </td><td>{{ user.createdAt.slice(0, 10) }}</td></tr>
+        }</tbody></table></div>
+    }
+  </section>
+}
+
+@if (activeTab() === 'roles') {
+  <section class="admin-panel">
+    <header class="panel-heading"><div><h2>Permisos por rol</h2><p>Los cambios se aplican a las siguientes solicitudes.</p></div>
+      <label class="role-select">Rol<select [value]="selectedRoleId()" (change)="selectRole($any($event.target).value)">
+        @for (role of roles(); track role.id) { <option [value]="role.id">{{ role.name }}</option> }
+      </select></label>
+    </header>
+    @if (loading()) { <div class="empty-state">Cargando permisos…</div> }
+    @else if (rolePermissions(); as assignment) {
+      <div class="permission-list">@for (permission of assignment.catalog; track permission.code) {
+        <label class="permission-row"><input type="checkbox" [checked]="selectedPermissionCodes().includes(permission.code)"
+          [disabled]="!canManageRolePermissions || permissionDisabled(permission)"
+          (change)="togglePermission(permission, $any($event.target).checked)" />
+          <span class="permission-copy"><strong>{{ permission.name }}</strong><small>{{ permission.code }} · {{ permission.description }}</small></span>
+          @if (permission.isProtectedForAdministrator) { <span class="protected-tag">PROTEGIDO</span> }
+        </label>
+      }</div>
+      @if (canManageRolePermissions) { <footer class="panel-footer"><span>Los permisos protegidos no se pueden modificar.</span>
+        <button class="button button-primary" [disabled]="saving()" (click)="saveRolePermissions()">{{ saving() ? 'Guardando…' : 'Guardar cambios' }}</button>
+      </footer> }
+    }
+  </section>
+}
+
+@if (activeTab() === 'permissions') {
+  <section class="admin-panel">
+    <header class="panel-heading"><div><h2>Catálogo de permisos</h2><p>Definido por el backend para las funciones disponibles.</p></div></header>
+    <div class="permission-list">@for (permission of permissions(); track permission.code) {
+      <article class="permission-row"><span class="permission-copy"><strong>{{ permission.name }}</strong><small>{{ permission.code }} · {{ permission.description }}</small></span>
+        <span class="module-tag">{{ permission.module }}</span>
+        @if (permission.isProtectedForAdministrator) { <span class="protected-tag">PROTEGIDO</span> }
+      </article>
+    }</div>
+  </section>
+}
+
+@if (userFormVisible()) {
+  <div class="modal-backdrop" (click)="userFormVisible.set(false)">
+    <section class="user-modal" role="dialog" aria-modal="true" aria-labelledby="create-user-title" (click)="$event.stopPropagation()">
+      <header class="panel-heading"><div><span class="eyebrow">NUEVA CUENTA</span><h2 id="create-user-title">Crear usuario</h2></div>
+        <button class="close-button" (click)="userFormVisible.set(false)" aria-label="Cerrar">&times;</button>
+      </header>
+      <form [formGroup]="createForm" (ngSubmit)="createUser()" novalidate>
+        <div class="form-grid">
+          <label>Usuario<input formControlName="userName" autocomplete="off" /></label>
+          <label>Email<input formControlName="email" type="email" /></label>
+          <label>Nombre<input formControlName="firstName" /></label>
+          <label>Apellido<input formControlName="lastName" /></label>
+          <label class="full">Contraseña inicial<input formControlName="password" type="password" autocomplete="new-password" /></label>
+        </div>
+        <fieldset><legend>Roles iniciales</legend><div class="role-checks">@for (role of roles(); track role.id) {
+          <label><input type="checkbox" (change)="toggleCreateRole(role.name, $any($event.target).checked)" />{{ role.name }}</label>
+        }</div></fieldset>
+        @if (createForm.invalid && createForm.touched) { <small class="form-hint">Completá usuario, nombre, apellido y una contraseña de al menos 8 caracteres.</small> }
+        <footer class="panel-footer"><button class="button button-quiet" type="button" (click)="userFormVisible.set(false)">Cancelar</button>
+          <button class="button button-primary" type="submit" [disabled]="saving()">{{ saving() ? 'Creando…' : 'Crear cuenta' }}</button></footer>
+      </form>
+    </section>
+  </div>
+}

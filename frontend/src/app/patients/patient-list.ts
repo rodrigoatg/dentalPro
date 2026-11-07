@@ -3,6 +3,7 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { PatientsApiService } from '../core/patients/patients-api.service';
 import { CreatedPatient, PatientListItem } from '../core/patients/patient.models';
+import { AuthService } from '../core/auth/auth.service';
 
 @Component({
   selector: 'app-patient-list',
@@ -12,6 +13,7 @@ import { CreatedPatient, PatientListItem } from '../core/patients/patient.models
 })
 export class PatientList implements OnInit {
   private readonly patientsApi = inject(PatientsApiService);
+  private readonly auth = inject(AuthService);
   private readonly formBuilder = inject(FormBuilder);
   protected readonly patients = signal<PatientListItem[]>([]);
   protected readonly loading = signal(true);
@@ -20,6 +22,7 @@ export class PatientList implements OnInit {
   protected readonly saving = signal(false);
   protected readonly submitError = signal('');
   protected readonly successMessage = signal('');
+  protected readonly canCreatePatients = () => this.auth.hasPermission('patients.create');
   private readonly currentDate = new Date();
   protected readonly today = `${this.currentDate.getFullYear()}-${String(this.currentDate.getMonth() + 1).padStart(2, '0')}-${String(this.currentDate.getDate()).padStart(2, '0')}`;
   protected readonly patientForm = this.formBuilder.nonNullable.group({
@@ -118,6 +121,8 @@ export class PatientList implements OnInit {
   private apiErrorMessage(error: HttpErrorResponse): string {
     if (error.status === 0)
       return 'No se pudo conectar con la API. Verific\u00E1 que el backend est\u00E1 iniciado.';
+    if (error.status === 401) return 'La sesi\u00F3n venci\u00F3. Inici\u00E1 sesi\u00F3n nuevamente.';
+    if (error.status === 403) return 'No ten\u00E9s permiso para acceder a los pacientes.';
     if (error.status === 409)
       return 'Ya existe un paciente con ese tipo y n\u00FAmero de documento.';
     if (error.status === 400)

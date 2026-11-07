@@ -133,6 +133,22 @@ authorization, HTTPS, password hashing and session expiration. 2FA is
 future product scope. This MVP boundary is not a statement that 2FA is or
 is not legally required.
 
+The initial RBAC roles are Administrator, Dentist and Receptionist. Users
+may have multiple roles. Permissions are assigned only to roles, and a
+user's effective permissions are the union of current assignments across
+those roles. The API evaluates current assignments for each authorization
+decision; permission changes therefore apply to the next request. The
+permissions catalog is defined by the backend and is limited to implemented
+API capabilities.
+
+Administrative permissions needed to manage users, roles and role-permission
+assignments are protected from removal through normal API operations. The
+last active Administrator cannot be demoted or deactivated. Deactivation or
+role changes invalidate previously issued access tokens; validation of
+current user security state fails closed. These controls support traceable,
+restricted access to sensitive data and do not replace validation of
+applicable legal obligations.
+
 ---
 
 ## 10. Interoperability

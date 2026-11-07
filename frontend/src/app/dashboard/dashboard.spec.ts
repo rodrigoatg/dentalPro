@@ -3,6 +3,7 @@ import { provideHttpClientTesting, HttpTestingController } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { Dashboard } from './dashboard';
+import { AuthService } from '../core/auth/auth.service';
 
 describe('Dashboard', () => {
   let http: HttpTestingController;
@@ -10,7 +11,10 @@ describe('Dashboard', () => {
   beforeEach(() => {
     TestBed.configureTestingModule({
       imports: [Dashboard],
-      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
+      providers: [
+        provideHttpClient(), provideHttpClientTesting(), provideRouter([]),
+        { provide: AuthService, useValue: { hasPermission: (code: string) => code === 'patients.view' || code === 'patients.create' } },
+      ],
     });
     http = TestBed.inject(HttpTestingController);
   });

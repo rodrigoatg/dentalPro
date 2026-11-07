@@ -1,6 +1,7 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs';
+import { AuthService } from './core/auth/auth.service';
 
 @Component({
   selector: 'app-root',
@@ -10,6 +11,15 @@ import { filter } from 'rxjs';
 })
 export class App {
   private readonly router = inject(Router);
+  protected readonly auth = inject(AuthService);
+  protected readonly displayName = computed(() => {
+    const user = this.auth.user();
+    return user ? `${user.firstName} ${user.lastName}`.trim() || user.userName : '';
+  });
+  protected readonly initials = computed(() => {
+    const user = this.auth.user();
+    return user ? `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`.toLocaleUpperCase('es-AR') : 'DP';
+  });
   protected readonly sectionTitle = signal(this.currentSection());
   protected readonly year = new Date().getFullYear();
   protected readonly todayLabel = new Intl.DateTimeFormat('es-AR', { dateStyle: 'full' }).format(
@@ -23,6 +33,12 @@ export class App {
   }
 
   private currentSection(): string {
+    if (this.router.url.startsWith('/admin')) return 'Administración';
     return this.router.url.startsWith('/patients') ? 'Pacientes' : 'Dashboard';
+  }
+
+  protected logout(): void {
+    this.auth.logout();
+    void this.router.navigate(['/login']);
   }
 }

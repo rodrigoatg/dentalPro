@@ -4,9 +4,9 @@
     <h1>Pacientes</h1>
     <p>Consult&aacute; y administr&aacute; la informaci&oacute;n de tus pacientes.</p>
   </div>
-  <button class="button button-primary" type="button" (click)="openForm()">
+  @if (canCreatePatients()) { <button class="button button-primary" type="button" (click)="openForm()">
     <span class="button-plus" aria-hidden="true">+</span>Registrar paciente
-  </button>
+  </button> }
 </div>
 @if (successMessage()) {
   <div class="notice notice-success" role="status">

@@ -1,11 +1,20 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
 using System.Text.Json;
 using DentalPro.Application.Patients;
+using DentalPro.Application.AccessControl;
+using DentalPro.Application.Identity;
+using DentalPro.Infrastructure.Identity;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.IdentityModel.Tokens;
 using DentalPro.Domain.Patients;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace DentalPro.IntegrationTests;
@@ -17,7 +26,7 @@ public sealed class PatientApiTests
     public async Task PostPatient_CreatesPatientAndReturnsMedicalRecordNumber_AndGetListsIt()
     {
         await using var factory = new PatientApiFactory();
-        using var client = factory.CreateClient();
+        using var client = factory.CreateAuthenticatedClient();
         var request = new
         {
             documentType = "DNI",
@@ -49,7 +58,7 @@ public sealed class PatientApiTests
     public async Task PostPatient_WhenDocumentAlreadyExists_ReturnsConflictWithoutExceptionDetails()
     {
         await using var factory = new PatientApiFactory();
-        using var client = factory.CreateClient();
+        using var client = factory.CreateAuthenticatedClient();
         var request = new
         {
             documentType = "DNI",
@@ -70,7 +79,7 @@ public sealed class PatientApiTests
     public async Task PostPatient_WhenDomainValidationFails_ReturnsBadRequest()
     {
         await using var factory = new PatientApiFactory();
-        using var client = factory.CreateClient();
+        using var client = factory.CreateAuthenticatedClient();
         var request = new
         {
             documentType = "DNI",
@@ -86,30 +95,82 @@ public sealed class PatientApiTests
 
     private sealed class PatientApiFactory : WebApplicationFactory<Program>
     {
+        private const string SigningKey = "patient-api-test-signing-key-at-least-32-bytes";
         private readonly string? _previousConnectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DentalPro");
+        private readonly string? _previousJwtSigningKey = Environment.GetEnvironmentVariable("Jwt__SigningKey");
 
-        public PatientApiFactory() =>
+        public PatientApiFactory()
+        {
             Environment.SetEnvironmentVariable("ConnectionStrings__DentalPro", "Host=localhost;Database=unused");
+            Environment.SetEnvironmentVariable("Jwt__SigningKey", SigningKey);
+        }
 
+        public HttpClient CreateAuthenticatedClient()
+        {
+            var client = CreateClient();
+            var jwtOptions = Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<JwtOptions>>().Value;
+            var user = new ApplicationUser { UserName = "patient-test" };
+            var claims = new[]
+            {
+                new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+                new Claim(JwtRegisteredClaimNames.UniqueName, user.UserName!),
+                new Claim(JwtTokenGenerator.SecurityStampFingerprintClaim,
+                    JwtTokenGenerator.CreateSecurityStampFingerprint(user.SecurityStamp!))
+            };
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(SigningKey));
+            var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+            var now = DateTime.UtcNow;
+            var token = new JwtSecurityToken(
+                jwtOptions.Issuer,
+                jwtOptions.Audience,
+                claims,
+                now,
+                now.AddMinutes(jwtOptions.AccessTokenLifetimeMinutes),
+                credentials);
+            client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue(
+                "Bearer", new JwtSecurityTokenHandler().WriteToken(token));
+            return client;
+        }
         protected override void Dispose(bool disposing)
         {
             base.Dispose(disposing);
             if (disposing)
             {
                 Environment.SetEnvironmentVariable("ConnectionStrings__DentalPro", _previousConnectionString);
+                Environment.SetEnvironmentVariable("Jwt__SigningKey", _previousJwtSigningKey);
             }
         }
 
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
+            builder.ConfigureLogging(logging => logging.ClearProviders());
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll<IPatientRepository>();
                 services.AddSingleton<IPatientRepository, InMemoryPatientRepository>();
+                services.RemoveAll<IEffectivePermissionQuery>();
+                services.AddSingleton<IEffectivePermissionQuery, PatientPermissionQuery>();
+                services.RemoveAll<IUserSessionValidator>();
+                services.AddSingleton<IUserSessionValidator, ActiveTestSessionValidator>();
             });
         }
     }
 
+    private sealed class PatientPermissionQuery : IEffectivePermissionQuery
+    {
+        public Task<IReadOnlySet<string>> GetForUserAsync(Guid userId, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlySet<string>>(new HashSet<string>(
+                [PermissionCatalog.PatientsView, PermissionCatalog.PatientsCreate], StringComparer.Ordinal));
+
+        public Task<bool> HasPermissionAsync(Guid userId, string permissionCode, CancellationToken cancellationToken = default) =>
+            Task.FromResult(permissionCode is PermissionCatalog.PatientsView or PermissionCatalog.PatientsCreate);
+    }
+
+    private sealed class ActiveTestSessionValidator : IUserSessionValidator
+    {
+        public Task<bool> IsCurrentAsync(Guid userId, string securityStampFingerprint, CancellationToken cancellationToken = default) =>
+            Task.FromResult(userId != Guid.Empty && !string.IsNullOrWhiteSpace(securityStampFingerprint));
+    }
     private sealed class InMemoryPatientRepository : IPatientRepository
     {
         private readonly List<Patient> _patients = [];

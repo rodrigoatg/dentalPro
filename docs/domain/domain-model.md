@@ -77,9 +77,9 @@ MVP scope: Patient, MedicalRecord and an initially empty Odontogram are created 
 
 Future relationship:
 
-- A Patient may optionally be associated with a User account.
-- A Patient User account is assigned the Patient role.
-- Patient users can only access resources belonging to themselves.
+- A Patient may be associated with a User account in a future patient-portal
+  capability. Patient accounts and patient-scoped authorization are outside
+  the current MVP.
 ### Appointment
 
 Represents a scheduled appointment between a patient and a dentist.
@@ -293,6 +293,12 @@ Possible actions include:
 - Export
 - Cancel
 - Restore
+- AssignRole
+- RemoveRole
+- AssignPermission
+- RemovePermission
+- DeactivateUser
+- ActivateUser
 
 Relationships:
 
@@ -712,7 +718,8 @@ Business rules:
 
 ### User
 
-Represents a system user.
+Represents an individual account that can authenticate to DentalPro. User
+credentials and role membership are managed through ASP.NET Core Identity.
 
 Attributes:
 
@@ -730,79 +737,135 @@ Attributes:
 
 Relationships:
 
-- A User can have one or more Roles through UserRole.
-- A User can perform actions according to the permissions
-  associated with its Roles.
+- A User may have one or more Roles through Identity's user-role association.
+- Permissions are assigned to Roles only; there are no user-specific
+  permissions.
+- A User's effective permissions are the union of permissions assigned to
+  all of that user's Roles.
+- Authorization uses current role-permission assignments stored by the
+  application, not permission claims from a previously issued access token.
+- A change to role permissions applies to the next authorized request and
+  does not require the user to sign in again.
+- Deactivating a user or changing the user's roles invalidates previously
+  issued access tokens through security-state validation.
 
 
 ### Role
 
-Represents a set of permissions assigned to a user.
+Represents one of the fixed system roles to which users may be assigned and
+permissions may be associated.
 
-MVP roles:
+Initial MVP roles:
 
+- Administrator
 - Receptionist
 - Dentist
-- Administrative
-- SystemAdministrator
 
 
 Relationships:
 
-- A Role can be assigned to many Users through UserRole.
+- A Role can be assigned to many Users through Identity's user-role
+  association, and a User can have multiple Roles.
 - A Role can contain many Permissions through RolePermission.
-
-Role categories:
-
-Operational roles:
-- Receptionist
-- Dentist
-- Administrative
-
-System administration:
-- SystemAdministrator
-
-Technical development/testing account:
-- PlatformAdministrator
-
-### PlatformAdministrator
-
-Represents a privileged developer/superuser account used for development,
-testing, maintenance or troubleshooting. It is not a normal operational
-business role.
-
-This role is intended for development, maintenance, troubleshooting,
-and platform administration.
-
-It is not considered a regular operational role of the dental clinic.
-
-PlatformAdministrator accounts must not be used as the primary
-accounts for validating functional role-based access control.
-Functional authorization must also be tested using accounts assigned
-to the corresponding operational roles.
+- Role names and membership are not permission definitions. Possessing the
+  Administrator role does not automatically grant clinical permissions.
+- When clinical endpoints are implemented, their initial permissions are
+  assigned to Dentist only; no clinical permission is part of the initial
+  catalog because there are no clinical endpoints yet.
+- Role definitions are fixed for the MVP; users with protected administrative
+  permissions may configure role-permission assignments through the API.
 
 ### Permission
 
-Represents an operation that can be performed in the system.
+Represents a backend capability that can be granted to a Role. The permission
+catalog has one canonical definition in backend code and is seeded into
+persistence. Permission codes are stable technical identifiers used for
+authorization. Names, descriptions and module labels are presentation
+metadata and may change without changing authorization behavior.
 
-Examples:
+Only permissions corresponding to implemented API endpoints belong in the
+active catalog. Adding a permission does not itself implement an endpoint or
+grant that permission to a role.
 
-- patients.read
-- patients.create
-- appointments.read
-- appointments.create
-- clinical.read
-- clinical.write
-- users.manage
+The initial MVP catalog is:
+
+Permission properties:
+
+- Id: Guid generated when the catalog entry is created. Seeding resolves
+  entries by Code and preserves an existing Id.
+- Code: required, unique, lowercase dot-separated stable authorization key.
+- Name: required display name; may change without changing authorization.
+- Description: optional display text; may change without changing
+  authorization.
+- Module: required display/grouping metadata; may change without changing
+  authorization.
+
+The domain prevents changing Code through its metadata update operation.
+Uniqueness across catalog entries is enforced by the catalog and persistence
+constraints, not by an individual Permission instance.
+
+| Code | Meaning | Module |
+| --- | --- | --- |
+| `patients.view` | List patients | Patients |
+| `patients.create` | Create patients | Patients |
+| `users.view` | List and inspect user accounts | Identity |
+| `users.create` | Create user accounts | Identity |
+| `users.status.manage` | Activate or deactivate user accounts | Identity |
+| `users.roles.manage` | Assign or remove roles from users | Identity |
+| `roles.view` | List roles and inspect their permission assignments | Identity |
+| `roles.permissions.manage` | Assign or remove permissions on roles | Identity |
+| `permissions.view` | View the backend-defined permission catalog | Identity |
+
+The patient catalog is limited to the current list and create endpoints;
+there is no `patients.edit` permission because no patient-edit endpoint is
+implemented. Appointment, clinical-record and treatment permissions are
+excluded until corresponding endpoints exist.
+
+Protected administrative permissions are defined in backend code and cannot
+be removed from Administrator by any normal API operation:
+
+- `users.view`
+- `users.create`
+- `users.status.manage`
+- `users.roles.manage`
+- `roles.view`
+- `roles.permissions.manage`
+- `permissions.view`
+
+The API must enforce this invariant independently of client input. Seeding
+must ensure that protected assignments exist and must not silently delete
+existing role-permission assignments.
+
+Initial role-permission matrix:
+
+| Permission | Administrator | Dentist | Receptionist |
+| --- | --- | --- | --- |
+| `patients.view` | Yes | Yes | Yes |
+| `patients.create` | Yes | Yes | Yes |
+| `users.view` | Yes (protected) | No | No |
+| `users.create` | Yes (protected) | No | No |
+| `users.status.manage` | Yes (protected) | No | No |
+| `users.roles.manage` | Yes (protected) | No | No |
+| `roles.view` | Yes (protected) | No | No |
+| `roles.permissions.manage` | Yes (protected) | No | No |
+| `permissions.view` | Yes (protected) | No | No |
+
+This is the initial assignment. Other non-protected assignments may be
+configured for roles as the implemented API grows. Administrator receives
+no clinical permissions by default.
 
 
 Relationships:
 
 - A Permission can belong to many Roles through RolePermission.
+- Permission codes are unique and stable. Permission metadata may change
+  independently of the code.
+- Permissions are never assigned directly to Users.
 
 ### UserRole
 
-Associative entity between User and Role.
+Identity-managed association between User and Role. A user may have multiple
+roles and each role may be assigned to multiple users.
 
 Attributes:
 
@@ -813,6 +876,12 @@ Attributes:
 
 Associative entity between Role and Permission.
 
+Each RolePermission associates exactly one Role with one Permission. The
+RoleId/PermissionId pair is its composite identifier and must be unique so
+that duplicate assignments cannot be stored. RoleId is an opaque Guid that
+matches the future Identity role key; the domain does not reference Identity
+types. Both identifiers are required and cannot be empty.
+
 Attributes:
 
 - RoleId
@@ -820,9 +889,31 @@ Attributes:
 
 User
  │
- └──< UserRole >── Role
-                    │
-                    └──< RolePermission >── Permission
+ └──< Identity user-role association >── Role
+                                           │
+                                           └──< RolePermission >── Permission
+
+### RBAC security invariants
+
+- Effective permissions equal the union of permissions assigned to all
+  current roles of the authenticated user.
+- The API evaluates current role-permission assignments on every
+  authorization decision. Permission claims in a JWT are not an authority
+  for granting access.
+- Role-permission changes take effect on the next request and require no new
+  sign-in. The MVP does not cache effective permissions.
+- No normal API operation may remove protected administrative permissions
+  from Administrator.
+- An active Administrator may not remove their own administrative role or
+  deactivate themselves through normal API operations.
+- The last active Administrator cannot lose the Administrator role or be
+  deactivated. Concurrent account/role changes must preserve this invariant.
+- Deactivation and role changes invalidate previously issued JWTs by
+  changing and validating the user's security state. Validation failure or
+  inability to verify current state must reject the request.
+- The initial installation creates the fixed roles and initial permission
+  assignments idempotently, then bootstraps its first Administrator from
+  deployment secrets. No public bootstrap or registration endpoint exists.
 
 ## 3. Future Domain Concepts
 

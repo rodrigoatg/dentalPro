@@ -2,6 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { PatientList } from './patient-list';
+import { AuthService } from '../core/auth/auth.service';
 
 describe('PatientList', () => {
   let http: HttpTestingController;
@@ -9,7 +10,10 @@ describe('PatientList', () => {
   beforeEach(() => {
     TestBed.configureTestingModule({
       imports: [PatientList],
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [
+        provideHttpClient(), provideHttpClientTesting(),
+        { provide: AuthService, useValue: { hasPermission: (code: string) => code === 'patients.create' } },
+      ],
     });
     http = TestBed.inject(HttpTestingController);
   });

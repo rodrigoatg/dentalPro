@@ -1,5 +1,12 @@
 using DentalPro.Application.Patients;
+using DentalPro.Application.Administration;
+using DentalPro.Application.Identity;
+using DentalPro.Application.AccessControl;
+using DentalPro.Infrastructure.AccessControl;
+using DentalPro.Infrastructure.Identity;
+using DentalPro.Infrastructure.Administration;
 using DentalPro.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -20,6 +27,25 @@ public static class InfrastructureServiceCollectionExtensions
         }
 
         services.AddDbContext<DentalProDbContext>(options => options.UseNpgsql(connectionString));
+        services.AddIdentityCore<ApplicationUser>()
+            .AddRoles<IdentityRole<Guid>>()
+            .AddSignInManager()
+            .AddEntityFrameworkStores<DentalProDbContext>();
+        services.AddOptions<JwtOptions>()
+            .Bind(configuration.GetSection(JwtOptions.SectionName))
+            .Validate(options => options.IsValid(),
+                "Jwt:Issuer, Jwt:Audience, a signing key of at least 32 bytes, and a token lifetime from 1 to 1440 minutes are required.")
+            .ValidateOnStart();
+        services.AddSingleton<JwtTokenGenerator>();
+        services.AddScoped<IUserAuthenticationService, IdentityUserAuthenticationService>();
+        services.AddScoped<IUserSessionValidator, IdentityUserSessionValidator>();
+        services.AddSingleton<IPermissionCatalog, PermissionCatalog>();
+        services.AddScoped<IEffectivePermissionQuery, EffectivePermissionQuery>();
+        services.AddScoped<IUserAdministrationService, IdentityUserAdministrationService>();
+        services.AddScoped<IRoleAdministrationService, IdentityRoleAdministrationService>();
+        services.AddScoped<ISecurityBootstrapper, SecurityBootstrapper>();
+        services.AddOptions<SecurityBootstrapOptions>()
+            .Bind(configuration.GetSection(SecurityBootstrapOptions.SectionName));
         services.AddScoped<IPatientRepository, PatientRepository>();
 
         return services;

@@ -276,6 +276,35 @@
   color: #80909b;
   font-size: 13px;
 }
+.logout-button {
+  margin-left: 3px;
+  padding: 6px 9px;
+  border: 1px solid #e2e9eb;
+  border-radius: 7px;
+  color: #527062;
+  background: #fff;
+  font: inherit;
+  font-size: 9px;
+  cursor: pointer;
+}
+.authorization-alert {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px;
+  border: 1px solid #f0d4cd;
+  border-radius: 7px;
+  color: #a6493c;
+  background: #fff7f4;
+  font-size: 9px;
+}
+.authorization-alert button {
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font-size: 15px;
+  cursor: pointer;
+}
 .page-content {
   width: min(100%, 1280px);
   flex: 1;
@@ -374,8 +403,7 @@
   }
   .today-label,
   .topbar-divider,
-  .user-name,
-  .user-chevron {
+  .user-name {
     display: none;
   }
   .user-avatar {
