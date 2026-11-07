@@ -2,6 +2,83 @@
 
 Aplicaci&oacute;n de gesti&oacute;n odontol&oacute;gica. El MVP local incluye dashboard y alta/listado de pacientes.
 
+## Desarrollo con Docker Compose
+
+Requisitos: Docker Desktop con Docker Compose y un archivo `.env` local. Preparalo
+una vez desde el ejemplo:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Edit&aacute; `.env` antes de iniciar:
+
+- `POSTGRES_PASSWORD` debe coincidir con la contrase&ntilde;a ya configurada en el
+  volumen existente de PostgreSQL. Cambiarla en `.env` no modifica una base ya
+  inicializada.
+- `JWT_SIGNING_KEY` debe ser una clave Base64 que represente al menos 32 bytes.
+  Pod&eacute;s generarla en PowerShell con
+  `[Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(32))`.
+
+- Como el GetBytes puede dar error usar
+`$rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()`
+`$bytes = New-Object byte[] 32`
+`$rng.GetBytes($bytes)`
+`$jwtKey = [Convert]::ToBase64String($bytes)`
+`$rng.Dispose()`
+- Las variables `SECURITY_BOOTSTRAP_ADMIN_*` se completan solo para el comando
+  expl&iacute;cito de bootstrap.
+
+No agregues `.env` a Git. Desde la ra&iacute;z del repositorio, levant&aacute; los tres
+servicios:
+
+```powershell
+docker compose up --build
+```
+
+Direcciones locales: Angular `http://localhost:4200`, API
+`http://localhost:5010` y PostgreSQL `localhost:5432`. Angular usa su proxy
+Docker para reenviar `/api` a `api:8080`. El proxy local
+`frontend/proxy.conf.json` sigue apuntando a `localhost:5010`.
+
+Los fuentes se montan para hot reload. `node_modules`, paquetes NuGet y las
+carpetas `bin`/`obj` viven en vol&uacute;menes Docker separados para no mezclar
+dependencias o binarios de Windows con Linux.
+
+### Operaciones expl&iacute;citas de persistencia y seguridad
+
+Compose no aplica migraciones ni ejecuta el bootstrap al iniciar. Con los
+servicios disponibles, aplic&aacute; migraciones manualmente cuando corresponda:
+
+```powershell
+docker compose run --rm api dotnet tool restore
+docker compose run --rm api dotnet ef database update --project src/DentalPro.Infrastructure --startup-project src/DentalPro.Api
+```
+
+Para el primer bootstrap, carg&aacute; temporalmente en `.env` las variables
+`SECURITY_BOOTSTRAP_ADMIN_USERNAME`, `SECURITY_BOOTSTRAP_ADMIN_PASSWORD`,
+`SECURITY_BOOTSTRAP_ADMIN_FIRST_NAME` y `SECURITY_BOOTSTRAP_ADMIN_LAST_NAME`
+(el correo es opcional), y ejecut&aacute;:
+
+```powershell
+docker compose run --rm api dotnet run --project src/DentalPro.Api -- --bootstrap-security
+```
+
+Luego quit&aacute; las variables de bootstrap de `.env`. El comando crea roles y
+permisos idempotentemente, y agrega el primer administrador solo si a&uacute;n no
+existe.
+
+### Detener, estado y logs
+
+```powershell
+docker compose stop
+docker compose ps
+docker compose logs -f postgres api frontend
+```
+
+`docker compose down` elimina los contenedores y la red, pero conserva el
+volumen. No uses `docker compose down -v` si necesit&aacute;s conservar la base.
+
 ## Requisitos locales
 
 - .NET SDK 10

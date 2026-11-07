@@ -2,3 +2,6 @@
 **/obj/
 .vs/
 .nuget/
+.env
+.env.*
+!.env.example

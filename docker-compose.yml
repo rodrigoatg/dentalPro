@@ -5,7 +5,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-dentalpro_dev}
       POSTGRES_USER: ${POSTGRES_USER:-dentalpro}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dentalpro_local_dev_only}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     ports:
       - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
@@ -17,5 +17,77 @@ services:
       retries: 5
       start_period: 10s
 
+  api:
+    build:
+      context: .
+      dockerfile: src/DentalPro.Api/Dockerfile
+    restart: unless-stopped
+    working_dir: /workspace
+    command: ["dotnet", "watch", "--project", "src/DentalPro.Api", "run", "--no-launch-profile"]
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      DOTNET_USE_POLLING_FILE_WATCHER: "1"
+      ConnectionStrings__DentalPro: Host=postgres;Port=5432;Database=${POSTGRES_DB:-dentalpro_dev};Username=${POSTGRES_USER:-dentalpro};Password=${POSTGRES_PASSWORD}
+      Jwt__SigningKey: ${JWT_SIGNING_KEY:?Set JWT_SIGNING_KEY in .env}
+      SecurityBootstrap__InitialAdministrator__UserName: ${SECURITY_BOOTSTRAP_ADMIN_USERNAME:-}
+      SecurityBootstrap__InitialAdministrator__Password: ${SECURITY_BOOTSTRAP_ADMIN_PASSWORD:-}
+      SecurityBootstrap__InitialAdministrator__FirstName: ${SECURITY_BOOTSTRAP_ADMIN_FIRST_NAME:-}
+      SecurityBootstrap__InitialAdministrator__LastName: ${SECURITY_BOOTSTRAP_ADMIN_LAST_NAME:-}
+      SecurityBootstrap__InitialAdministrator__Email: ${SECURITY_BOOTSTRAP_ADMIN_EMAIL:-}
+    ports:
+      - "127.0.0.1:5010:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/8080'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    volumes:
+      - .:/workspace
+      - nuget_packages:/root/.nuget/packages
+      - api_bin:/workspace/src/DentalPro.Api/bin
+      - api_obj:/workspace/src/DentalPro.Api/obj
+      - application_bin:/workspace/src/DentalPro.Application/bin
+      - application_obj:/workspace/src/DentalPro.Application/obj
+      - domain_bin:/workspace/src/DentalPro.Domain/bin
+      - domain_obj:/workspace/src/DentalPro.Domain/obj
+      - infrastructure_bin:/workspace/src/DentalPro.Infrastructure/bin
+      - infrastructure_obj:/workspace/src/DentalPro.Infrastructure/obj
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    working_dir: /workspace
+    command: ["sh", "-c", "npm ci && npm start -- --host 0.0.0.0 --proxy-config proxy.docker.conf.json"]
+    environment:
+      CHOKIDAR_USEPOLLING: "true"
+    ports:
+      - "127.0.0.1:4200:4200"
+    volumes:
+      - ./frontend:/workspace
+      - frontend_node_modules:/workspace/node_modules
+      - frontend_angular_cache:/workspace/.angular
+    depends_on:
+      api:
+        condition: service_healthy
+
 volumes:
   postgres_data:
+    name: dentalpro_postgres_data
+  nuget_packages:
+  api_bin:
+  api_obj:
+  application_bin:
+  application_obj:
+  domain_bin:
+  domain_obj:
+  infrastructure_bin:
+  infrastructure_obj:
+  frontend_node_modules:
+  frontend_angular_cache:
