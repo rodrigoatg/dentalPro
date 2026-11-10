@@ -56,6 +56,8 @@ export class PatientList implements OnInit {
   }
 
   protected openForm(): void {
+    if (!this.canCreatePatients()) return;
+
     this.submitError.set('');
     this.patientForm.reset();
     this.formVisible.set(true);
@@ -66,6 +68,8 @@ export class PatientList implements OnInit {
   }
 
   protected submit(): void {
+    if (!this.canCreatePatients()) return;
+
     if (this.patientForm.invalid) {
       this.patientForm.markAllAsTouched();
       return;

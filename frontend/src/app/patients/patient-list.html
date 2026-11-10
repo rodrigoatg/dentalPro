@@ -42,9 +42,11 @@
       <div class="empty-icon"><span>P</span><i>+</i></div>
       <h3>Todav&iacute;a no hay pacientes</h3>
       <p>Cuando registres el primero, su informaci&oacute;n aparecer&aacute; en este listado.</p>
-      <button class="button button-primary" type="button" (click)="openForm()">
-        Registrar primer paciente
-      </button>
+      @if (canCreatePatients()) {
+        <button class="button button-primary" type="button" (click)="openForm()">
+          Registrar primer paciente
+        </button>
+      }
     </div>
   } @else if (patients().length > 0) {
     <div class="table-scroll">
@@ -105,7 +107,7 @@
     </button>
   </div>
 </section>
-@if (formVisible()) {
+@if (formVisible() && canCreatePatients()) {
   <div class="modal-backdrop" (click)="closeForm()" (keydown.escape)="closeForm()">
     <section
       class="patient-modal"

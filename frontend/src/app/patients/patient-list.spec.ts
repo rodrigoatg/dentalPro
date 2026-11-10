@@ -6,19 +6,56 @@ import { AuthService } from '../core/auth/auth.service';
 
 describe('PatientList', () => {
   let http: HttpTestingController;
+  let permissions: string[];
 
   beforeEach(() => {
+    permissions = ['patients.create'];
     TestBed.configureTestingModule({
       imports: [PatientList],
       providers: [
         provideHttpClient(), provideHttpClientTesting(),
-        { provide: AuthService, useValue: { hasPermission: (code: string) => code === 'patients.create' } },
+        { provide: AuthService, useValue: { hasPermission: (code: string) => permissions.includes(code) } },
       ],
     });
     http = TestBed.inject(HttpTestingController);
   });
 
   afterEach(() => http.verify());
+
+  it('allows viewing patients but prevents creation without patients.create', async () => {
+    permissions = ['patients.view'];
+    const fixture = TestBed.createComponent(PatientList);
+    fixture.detectChanges();
+
+    const listRequest = http.expectOne('/api/patients');
+    expect(listRequest.request.method).toBe('GET');
+    listRequest.flush([]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const page = fixture.nativeElement as HTMLElement;
+    expect(page.querySelector('.page-heading button')).toBeNull();
+    expect(page.querySelector('.empty-state button')).toBeNull();
+    expect(page.querySelector('[role="dialog"]')).toBeNull();
+
+    const component = fixture.componentInstance as unknown as {
+      openForm: () => void;
+      submit: () => void;
+      patientForm: { patchValue: (value: Record<string, string>) => void };
+    };
+    component.openForm();
+    fixture.detectChanges();
+    expect(page.querySelector('[role="dialog"]')).toBeNull();
+
+    component.patientForm.patchValue({
+      documentType: 'DNI',
+      documentNumber: '456',
+      firstName: 'Luc\u00EDa',
+      lastName: 'Mora',
+    });
+    component.submit();
+    http.expectNone((request) => request.method === 'POST');
+  });
 
   it('creates a patient, refreshes the list, and shows its medical record number', async () => {
     const fixture = TestBed.createComponent(PatientList);
