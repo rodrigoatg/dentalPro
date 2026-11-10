@@ -246,8 +246,67 @@ No deberá existir más de un paciente registrado con el mismo DNI.
 
 ### RN-02 — Disponibilidad de turnos
 
-Un odontólogo no podrá tener dos turnos superpuestos en un mismo
-período horario.
+No podrá haber turnos superpuestos para un mismo odontólogo ni para un
+mismo paciente. Los intervalos son semiabiertos `[inicio, fin)`, por lo que
+dos turnos consecutivos pueden compartir exactamente el límite entre fin e
+inicio.
+
+Los estados `Scheduled`, `Confirmed` y `Completed` bloquean el intervalo.
+`Cancelled` y `Rescheduled` se conservan como historial, pero no bloquean
+disponibilidad. La disponibilidad se comprueba al consultar y se vuelve a
+validar en la transacción de creación o reprogramación; la persistencia debe
+proteger la regla también ante solicitudes concurrentes.
+
+### Decisiones aprobadas de la agenda (Etapa 0)
+
+- Administrator y Receptionist pueden consultar y administrar la agenda
+  general. Dentist solo consulta su propia agenda y puede confirmar y marcar
+  como atendidos sus propios turnos. Dentist no crea, reprograma ni cancela
+  turnos en la primera versión.
+- Se reutilizan los estados `Scheduled`, `Confirmed`, `Completed`,
+  `Cancelled` y `Rescheduled`. Las transiciones permitidas son:
+  `Scheduled` -> `Confirmed`, `Completed`, `Cancelled` o `Rescheduled`; y
+  `Confirmed` -> `Completed`, `Cancelled` o `Rescheduled`. Los otros estados
+  son terminales.
+- Reprogramar conserva el turno previo como `Rescheduled` y crea un nuevo
+  turno que apunta al inmediatamente anterior. La cadena se reconstruye
+  siguiendo esas referencias. La actualización del anterior, la creación del
+  nuevo y sus eventos de auditoría son atómicos.
+- La agenda se valida contra una configuración de horarios de clínica:
+  franjas semanales, duración predeterminada y excepciones por fecha para
+  horarios especiales, feriados y cierres. No hay horarios individuales por
+  odontólogo en el alcance inicial.
+- La configuración requiere un identificador de zona horaria IANA. No se
+  fija una zona en los requisitos del producto; debe configurarse antes de
+  habilitar la agenda. Cambiar horarios no altera turnos existentes; los
+  turnos afectados se revisan y resuelven explícitamente.
+- Para los permisos y la matriz inicial por rol, ver
+  `docs/domain/domain-model.md` y
+  `docs/architecture/decisions/ADR-004-appointment-authorization-scope.md`.
+  Las asignaciones de agenda para
+  Administrator serán explícitas en el catálogo/bootstrap; no se derivan del
+  nombre de rol ni alteran la política general de permisos.
+
+### Cuestiones operativas previas a la implementación
+
+- La clínica debe proporcionar su identificador de zona horaria IANA y el
+  valor inicial de duración predeterminada. La agenda no se habilitará con
+  valores implícitos del servidor o del navegador.
+- Debe definirse el incremento de inicio de los turnos disponibles. La
+  duración predeterminada fija la longitud del turno, pero por sí sola no
+  determina cada hora de inicio ofrecida.
+- Debe definirse si se permiten altas o reprogramaciones en el pasado y qué
+  hacer con turnos futuros cuando se desactiva un paciente o se deshabilita un
+  odontólogo o su rol Dentist.
+- La UI necesita búsquedas mínimas de pacientes activos y odontólogos
+  activos. El listado actual de pacientes no busca ni pagina, y el endpoint
+  administrativo de usuarios requiere `users.view`; no debe suponerse que
+  Receptionist tendrá ese permiso.
+- Deben definirse el alcance de lectura de auditoría y su período de
+  retención conforme a la política operativa y regulatoria aplicable.
+- La implementación debe acordar la respuesta HTTP de conflictos de
+  disponibilidad y comprobar en PostgreSQL 17 la extensión necesaria para
+  las restricciones de exclusión.
 
 ### RN-03 — Historia clínica
 

@@ -33,7 +33,7 @@ Responsabilidades:
 - Crear turnos.
 - Modificar turnos.
 - Cancelar turnos.
-- Consultar agenda.
+- Consultar y administrar la agenda general.
 
 ### Odontólogo
 
@@ -44,6 +44,7 @@ Responsabilidades:
 - Registrar tratamientos.
 - Registrar observaciones clínicas.
 - Actualizar información clínica.
+- Consultar exclusivamente su propia agenda, confirmar sus propios turnos y marcarlos como atendidos. En la primera versión no crea, reprograma ni cancela turnos.
 
 ### Administrator
 
@@ -54,6 +55,8 @@ Responsabilidades:
 - Configurar los permisos asignados a roles, respetando los permisos
   administrativos protegidos.
 - Configurar los horarios de atención del consultorio.
+- Consultar y administrar explícitamente la agenda general mediante los
+  permisos de agenda sembrados para Administrator.
 
 Administrator no obtiene permisos clínicos por defecto.
 

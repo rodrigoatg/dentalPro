@@ -84,6 +84,12 @@ Future relationship:
 
 Represents a scheduled appointment between a patient and a dentist.
 
+Implementation status: `DentalPro.Domain.Appointments.Appointment` already
+exists with the core identifiers, interval, status and basic transition
+methods. The rescheduling reference and the rules below describe the approved
+target behavior. There is currently no appointment Application use case,
+Infrastructure mapping/repository, migration, API endpoint or Angular screen.
+
 Attributes:
 
 - Id
@@ -93,6 +99,9 @@ Attributes:
 - EndDateTime
 - Status
 - Notes
+- RescheduledFromAppointmentId (optional; references the immediately previous appointment in a rescheduling chain)
+- CreatedAt
+- UpdatedAt
 
 Possible statuses:
 
@@ -107,6 +116,7 @@ Relationships:
 - An Appointment belongs to exactly one Patient.
 - An Appointment is assigned to exactly one Dentist.
 - The Dentist is represented by a User with the Dentist role.
+- A rescheduled replacement may reference the appointment it replaces. Following these references backwards reconstructs the complete rescheduling chain; a rescheduled appointment has at most one direct replacement.
 - An Appointment is validated against the clinic's configured working hours.
 - Appointment changes are recorded through the audit mechanism.
 
@@ -118,8 +128,48 @@ Business rules:
 - A dentist cannot have overlapping active appointments.
 - A patient cannot have overlapping active appointments.
 - An appointment must fall within the configured clinic working hours.
-- Cancelled appointments do not block the corresponding time slot.
-- Appointment status transitions must follow the defined business rules.
+- Intervals use the half-open convention [start, end): consecutive appointments may share an end/start boundary without overlapping.
+- Scheduled, Confirmed and Completed appointments block the corresponding patient and dentist intervals. Cancelled and Rescheduled appointments are retained but do not block availability.
+- Before creation or rescheduling, the patient must exist and be active; the assigned user must exist, be active and have the Dentist role.
+- Availability must be checked again in the write transaction. Persistence must independently prevent conflicting intervals under concurrent requests.
+- Rescheduling marks the current appointment Rescheduled and creates a replacement referencing it. Both changes and their audit data are committed atomically; any failure rolls the complete operation back.
+- Appointment status transitions are: Scheduled -> Confirmed, Completed, Cancelled or Rescheduled; Confirmed -> Completed, Cancelled or Rescheduled. Completed, Cancelled and Rescheduled are terminal states.
+- Marking Completed preserves the historical appointment interval; it cannot be replaced by another blocking appointment for the same patient or dentist.
+- Appointment creation, rescheduling, cancellation, confirmation and completion must be auditable. Audit data identifies the actor, UTC timestamp, action and affected appointment; rescheduling also identifies the replacement relationship.
+
+### Clinic schedule configuration concept
+
+Clinic scheduling configuration is a separate operational concept; it is not
+currently implemented as a persisted entity. The initial conceptual model is:
+
+- One clinic time zone identified by an IANA time-zone ID. No specific zone is
+  assumed by the product documentation; configuration must provide it before
+  scheduling is enabled.
+- A positive, clinic-wide default appointment duration in minutes. Each
+  appointment stores its resolved start and end instants, so later duration
+  changes do not rewrite existing appointments. Creation and reprogramming
+  use this configured duration; per-appointment overrides and appointment
+  types are outside the initial scope. Dentist-specific schedules are also
+  outside the initial scope.
+- A recurring weekly schedule containing one or more local-time opening
+  intervals per day. Each interval has a start before its end; intervals on
+  the same day do not overlap.
+- Date exceptions that either close the clinic or replace that date's weekly
+  intervals. There is at most one effective exception per local date.
+  Holidays are entered as date exceptions; no external holiday integration
+  is introduced.
+- A booking interval must fit wholly inside one opening interval. A closure
+  overrides the weekly schedule. Changing clinic hours does not silently move
+  or delete existing appointments; affected bookings must be reviewed and
+  resolved explicitly.
+
+For persistence, recurring times are local wall-clock values associated with
+the configured clinic zone, not instants. Date exceptions use a calendar date.
+Appointment start/end values are UTC instants. The zone identifier is stored
+separately because PostgreSQL `timestamp with time zone` stores an instant,
+not the originating time-zone ID. Local times that are ambiguous or do not
+exist during a daylight-saving transition must be rejected or resolved by an
+explicit documented rule; they must never be silently shifted.
 
 ### MedicalRecord
 
@@ -854,6 +904,35 @@ This is the initial assignment. Other non-protected assignments may be
 configured for roles as the implemented API grows. Administrator receives
 no clinical permissions by default.
 
+### Approved scheduling permission plan (Stage 0; not yet active)
+
+The following codes are approved for the scheduling module, but are not part
+of the current backend catalog until their corresponding endpoints and
+schedule-configuration capability are implemented. The backend catalog and
+bootstrap assignments must be updated together with those endpoints.
+
+| Code | Meaning | Initial assignment |
+| --- | --- | --- |
+| `appointments.view` | View the authenticated Dentist's own agenda; required as the base agenda-view permission | Administrator, Receptionist, Dentist |
+| `appointments.view.all` | Expand agenda scope to all Dentists in the clinic | Administrator, Receptionist |
+| `appointments.create` | Create an appointment for an existing active Patient and active Dentist | Administrator, Receptionist |
+| `appointments.update` | Reschedule an appointment by retaining the prior record and creating its replacement | Administrator, Receptionist |
+| `appointments.cancel` | Cancel an appointment while retaining its record | Administrator, Receptionist |
+| `appointments.confirm` | Confirm an appointment assigned to the authenticated Dentist | Dentist |
+| `appointments.complete` | Mark an appointment assigned to the authenticated Dentist as attended | Dentist |
+| `appointments.schedule.manage` | Configure clinic opening hours, appointment duration and date exceptions | Administrator |
+
+`appointments.view.all` expands data scope; it does not grant create, update,
+cancel, confirm, complete or schedule-management operations by itself. Each
+operation still requires its own permission. Administrator's agenda grants
+are explicit initial role-permission assignments, not an implicit effect of
+the Administrator role, and they do not make clinical permissions
+Administrator-protected. Receptionist can administer the general agenda but
+does not configure clinic hours. Dentist's confirm and complete operations
+must additionally verify in the backend that the appointment's DentistId is
+the authenticated user's ID. Users with multiple roles receive the union of
+the explicitly assigned permissions, as elsewhere in RBAC.
+
 
 Relationships:
 
@@ -1012,12 +1091,23 @@ The decision will be documented through an Architecture Decision Record.
 The system must provide traceability for operations involving clinical,
 patient, security, and administrative information.
 
-Auditability is implemented through two complementary mechanisms:
+The intended audit design uses two complementary mechanisms:
 
 - Clinical versioning preserves the complete state of clinical records
   at each version.
 - AuditEvent records who performed an operation, when it occurred, what
   entity was affected, and additional contextual information.
+
+The AuditEvent concept is a requirement, not an existing implementation: no
+AuditEvent entity, table, or generic audit service is currently present in
+the source code. The initial appointment implementation will use an append-only
+audit record written in the same database transaction as each appointment
+change. It records actor user ID, UTC occurrence time, action, affected
+appointment ID, and (for rescheduling) the prior/replacement appointment IDs.
+It stores only the contextual data needed for traceability and does not copy
+patient clinical data or appointment notes. This is a minimal reusable event
+record, not Event Sourcing; later modules may emit the same event contract and
+storage can be generalized without changing appointment history semantics.
 
 MVP audit scope includes patient creation, update and deactivation; appointment creation, update and cancellation; clinical record changes; ClinicalEntry and Treatment creation or update; Odontogram changes; and authentication events. Patient-creation audit remains a documented requirement pending implementation; the initial patient-creation slice does not implement a complete audit subsystem. Every read operation does not need an AuditEvent in the MVP.
 

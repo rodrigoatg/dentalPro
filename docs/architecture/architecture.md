@@ -351,3 +351,29 @@ Potential future capabilities include:
 - Clinical document exchange.
 
 These capabilities are outside the initial MVP.
+
+## 17. Scheduling Module Boundary
+
+The `Appointment` Domain type already exists, but the scheduling use cases,
+EF Core persistence, migration, API and Angular interface are not yet
+implemented. The implementation must preserve the modular dependency rules:
+
+- Domain owns appointment invariants and state transitions and does not
+  reference Identity, EF Core or PostgreSQL.
+- Application orchestrates eligibility, availability, scope checks and
+  atomic appointment operations through application-owned contracts.
+- Infrastructure maps appointment persistence rows, validates Patient and
+  Identity-backed Dentist state, stores clinic schedule configuration, and
+  implements PostgreSQL-specific overlap constraints.
+- API exposes explicit contracts, requires the code-defined permission for
+  each operation, and supplies the authenticated actor ID to Application.
+- Angular may hide controls based on effective permissions but is never an
+  authorization boundary.
+- Appointment audit records are append-only and committed in the same
+  transaction as the appointment operation. This is audit logging, not Event
+  Sourcing.
+
+The details of agenda scope, UTC instants, local clinic hours, PostgreSQL
+concurrency enforcement and audit records are defined in ADR-004,
+ADR-005 and ADR-006. Database migrations remain an explicit reviewed
+deployment operation; API startup must not apply them automatically.
