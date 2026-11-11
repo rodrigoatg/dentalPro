@@ -212,6 +212,43 @@ namespace DentalPro.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("DentalPro.Infrastructure.Persistence.Models.AuditEventRow", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("ActorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("EntityId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("EntityType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("OccurredAt")
+                        .HasColumnType("timestamptz");
+
+                    b.Property<Guid?>("RelatedEntityId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id")
+                        .HasName("PK_AuditEvents");
+
+                    b.HasIndex("ActorId", "OccurredAt")
+                        .HasDatabaseName("IX_AuditEvents_ActorId_OccurredAt");
+
+                    b.HasIndex("EntityType", "EntityId", "OccurredAt")
+                        .HasDatabaseName("IX_AuditEvents_EntityType_EntityId_OccurredAt");
+
+                    b.ToTable("AuditEvents", (string)null);
+                });
+
             modelBuilder.Entity("DentalPro.Infrastructure.Persistence.Models.MedicalRecordRow", b =>
                 {
                     b.Property<Guid>("Id")
@@ -496,6 +533,16 @@ namespace DentalPro.Infrastructure.Persistence.Migrations
                         .HasForeignKey("RescheduledFromAppointmentId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("FK_Appointments_Appointments_RescheduledFromAppointmentId");
+                });
+
+            modelBuilder.Entity("DentalPro.Infrastructure.Persistence.Models.AuditEventRow", b =>
+                {
+                    b.HasOne("DentalPro.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("ActorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_AuditEvents_AspNetUsers_ActorId");
                 });
 
             modelBuilder.Entity("DentalPro.Infrastructure.Persistence.Models.MedicalRecordRow", b =>

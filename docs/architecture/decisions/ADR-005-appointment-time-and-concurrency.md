@@ -84,6 +84,16 @@ record. If validation, either exclusion constraint, or any write fails, the
 entire transaction rolls back. Cancelled and Rescheduled rows are omitted
 from both blocking constraints; Completed rows remain included.
 
+Updates to an existing Appointment also acquire a PostgreSQL row lock with
+`SELECT ... FOR UPDATE` inside the active unit-of-work transaction. Under the
+default `READ COMMITTED` isolation level, a writer waits for a concurrent
+update and then reads the committed row version before applying its domain
+transition. The lock is held through commit or rollback. It serializes changes
+to that Appointment only; it does not lock a Dentist's or Patient's schedule
+and does not replace the exclusion constraints. Longer transactions increase
+contention, and operations that lock multiple appointments would need a stable
+lock order to limit deadlocks.
+
 ## Alternatives Considered
 
 ### Availability query under the default transaction isolation only

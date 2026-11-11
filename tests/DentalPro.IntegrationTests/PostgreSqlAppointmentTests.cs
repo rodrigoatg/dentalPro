@@ -26,6 +26,7 @@ public sealed class PostgreSqlAppointmentTests
         context.ChangeTracker.Clear();
 
         repository = new AppointmentRepository(context);
+        await using var transaction = await context.Database.BeginTransactionAsync();
         var loaded = await repository.GetByIdForUpdateAsync(appointment.Id);
         var loadedAgain = await repository.GetByIdForUpdateAsync(appointment.Id);
         var listed = await repository.ListAsync(Start.AddMinutes(-1), Start.AddMinutes(31), dentistId);
@@ -43,6 +44,7 @@ public sealed class PostgreSqlAppointmentTests
         Assert.Null(loaded.RescheduledFromAppointmentId);
         Assert.Equal(PostgreSqlTimestamp(appointment.CreatedAt), loaded.CreatedAt);
         Assert.Equal(PostgreSqlTimestamp(appointment.UpdatedAt), loaded.UpdatedAt);
+        await transaction.CommitAsync();
     }
 
     [PostgreSqlAppointmentFact]
@@ -71,6 +73,7 @@ public sealed class PostgreSqlAppointmentTests
         context.ChangeTracker.Clear();
 
         repository = new AppointmentRepository(context);
+        await using var transaction = await context.Database.BeginTransactionAsync();
         Assert.Equal(AppointmentStatus.Confirmed, (await repository.GetByIdForUpdateAsync(confirmed.Id))!.Status);
         Assert.Equal(AppointmentStatus.Completed, (await repository.GetByIdForUpdateAsync(completed.Id))!.Status);
         Assert.Equal(AppointmentStatus.Cancelled, (await repository.GetByIdForUpdateAsync(cancelled.Id))!.Status);
@@ -80,6 +83,7 @@ public sealed class PostgreSqlAppointmentTests
         Assert.Equal(AppointmentStatus.Scheduled, loadedReplacement!.Status);
         Assert.Equal(original.Id, loadedReplacement.RescheduledFromAppointmentId);
         Assert.Equal("Replacement", loadedReplacement.Notes);
+        await transaction.CommitAsync();
     }
 
     [PostgreSqlAppointmentFact]
@@ -94,14 +98,21 @@ public sealed class PostgreSqlAppointmentTests
         context.ChangeTracker.Clear();
 
         repository = new AppointmentRepository(context);
-        var reconstructed = await repository.GetByIdForUpdateAsync(appointment.Id);
-        Assert.NotNull(reconstructed);
-        reconstructed.Confirm();
-        await repository.UpdateAsync(reconstructed);
-        await context.SaveChangesAsync();
+        DateTimeOffset updatedAt;
+        await using (var transaction = await context.Database.BeginTransactionAsync())
+        {
+            var reconstructed = await repository.GetByIdForUpdateAsync(appointment.Id);
+            Assert.NotNull(reconstructed);
+            reconstructed.Confirm();
+            updatedAt = reconstructed.UpdatedAt;
+            await repository.UpdateAsync(reconstructed);
+            await context.SaveChangesAsync();
+            await transaction.CommitAsync();
+        }
         context.ChangeTracker.Clear();
 
         repository = new AppointmentRepository(context);
+        await using var verifyTransaction = await context.Database.BeginTransactionAsync();
         var persisted = await repository.GetByIdForUpdateAsync(appointment.Id);
         Assert.NotNull(persisted);
         Assert.Equal(AppointmentStatus.Confirmed, persisted.Status);
@@ -112,7 +123,8 @@ public sealed class PostgreSqlAppointmentTests
         Assert.Equal("Original notes", persisted.Notes);
         Assert.Null(persisted.RescheduledFromAppointmentId);
         Assert.Equal(PostgreSqlTimestamp(appointment.CreatedAt), persisted.CreatedAt);
-        Assert.Equal(PostgreSqlTimestamp(reconstructed.UpdatedAt), persisted.UpdatedAt);
+        Assert.Equal(PostgreSqlTimestamp(updatedAt), persisted.UpdatedAt);
+        await verifyTransaction.CommitAsync();
     }
 
     [PostgreSqlAppointmentFact]
@@ -195,7 +207,7 @@ public sealed class PostgreSqlAppointmentTests
             .UseNpgsql(connectionString)
             .Options;
         var context = new DentalProDbContext(options);
-        await context.Database.EnsureCreatedAsync();
+        await context.Database.MigrateAsync();
         return context;
     }
 

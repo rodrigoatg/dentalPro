@@ -2,6 +2,7 @@ using DentalPro.Application.Appointments;
 using DentalPro.Domain.Appointments;
 using DentalPro.Infrastructure.Persistence.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace DentalPro.Infrastructure.Persistence;
 
@@ -32,20 +33,60 @@ public sealed class AppointmentRepository(DentalProDbContext dbContext) : IAppoi
         Guid appointmentId,
         CancellationToken cancellationToken = default)
     {
-        if (_trackedAppointments.TryGetValue(appointmentId, out var tracked))
+        var transaction = dbContext.Database.CurrentTransaction
+            ?? throw new InvalidOperationException("GetByIdForUpdateAsync requires an active database transaction.");
+
+        if (_trackedAppointments.TryGetValue(appointmentId, out var existing))
         {
-            return tracked.Aggregate;
+            if (dbContext.Entry(existing.Row).State == EntityState.Detached)
+            {
+                _trackedAppointments.Remove(appointmentId);
+            }
+            else if (ReferenceEquals(existing.LockedByTransaction, transaction))
+            {
+                return existing.Aggregate;
+            }
         }
 
+        // NoTracking is intentional: PostgreSQL waits for a concurrent updater and returns
+        // its committed row version, while EF tracking would otherwise keep stale values.
         var row = await dbContext.Appointments
-            .SingleOrDefaultAsync(appointment => appointment.Id == appointmentId, cancellationToken);
+            .FromSqlInterpolated($"SELECT * FROM \"Appointments\" WHERE \"Id\" = {appointmentId} FOR UPDATE")
+            .AsNoTracking()
+            .SingleOrDefaultAsync(cancellationToken);
         if (row is null)
         {
+            _trackedAppointments.Remove(appointmentId);
             return null;
         }
 
-        var aggregate = ToDomain(row);
-        _trackedAppointments.Add(appointmentId, new TrackedAppointment(row, aggregate));
+        AppointmentRow trackedRow;
+        if (_trackedAppointments.TryGetValue(appointmentId, out existing)
+            && dbContext.Entry(existing.Row).State != EntityState.Detached)
+        {
+            var entry = dbContext.Entry(existing.Row);
+            if (entry.State != EntityState.Unchanged)
+            {
+                throw new InvalidOperationException(
+                    "An appointment cannot be refreshed for update after local row changes have been staged.");
+            }
+
+            entry.CurrentValues.SetValues(row);
+            entry.OriginalValues.SetValues(row);
+            trackedRow = existing.Row;
+        }
+        else
+        {
+            trackedRow = await dbContext.Appointments.SingleAsync(
+                appointment => appointment.Id == appointmentId,
+                cancellationToken);
+            var entry = dbContext.Entry(trackedRow);
+            entry.CurrentValues.SetValues(row);
+            entry.OriginalValues.SetValues(row);
+        }
+
+        var aggregate = Rehydrate(row);
+        _trackedAppointments[appointmentId] = new TrackedAppointment(trackedRow, aggregate, transaction);
         return aggregate;
     }
 
@@ -116,10 +157,19 @@ public sealed class AppointmentRepository(DentalProDbContext dbContext) : IAppoi
     {
         if (_trackedAppointments.TryGetValue(row.Id, out var tracked))
         {
-            return tracked.Aggregate;
+            if (dbContext.Entry(tracked.Row).State != EntityState.Detached)
+            {
+                return tracked.Aggregate;
+            }
+
+            _trackedAppointments.Remove(row.Id);
         }
 
-        return Appointment.Rehydrate(
+        return Rehydrate(row);
+    }
+
+    private static Appointment Rehydrate(AppointmentRow row) =>
+        Appointment.Rehydrate(
             row.Id,
             row.PatientId,
             row.DentistId,
@@ -130,7 +180,6 @@ public sealed class AppointmentRepository(DentalProDbContext dbContext) : IAppoi
             row.RescheduledFromAppointmentId,
             row.CreatedAt,
             row.UpdatedAt);
-    }
 
     private static AppointmentRow ToRow(Appointment appointment) => new()
     {
@@ -146,5 +195,8 @@ public sealed class AppointmentRepository(DentalProDbContext dbContext) : IAppoi
         UpdatedAt = appointment.UpdatedAt.ToUniversalTime()
     };
 
-    private sealed record TrackedAppointment(AppointmentRow Row, Appointment Aggregate);
+    private sealed record TrackedAppointment(
+        AppointmentRow Row,
+        Appointment Aggregate,
+        IDbContextTransaction? LockedByTransaction = null);
 }

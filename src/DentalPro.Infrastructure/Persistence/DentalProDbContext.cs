@@ -15,6 +15,7 @@ public sealed class DentalProDbContext(DbContextOptions<DentalProDbContext> opti
     public DbSet<MedicalRecordRow> MedicalRecords => Set<MedicalRecordRow>();
     public DbSet<OdontogramRow> Odontograms => Set<OdontogramRow>();
     public DbSet<AppointmentRow> Appointments => Set<AppointmentRow>();
+    public DbSet<AuditEventRow> AuditEvents => Set<AuditEventRow>();
     public DbSet<Permission> Permissions => Set<Permission>();
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
 
