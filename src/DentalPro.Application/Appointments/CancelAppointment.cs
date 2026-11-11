@@ -17,6 +17,7 @@ public sealed class CancelAppointment(
                 ?? throw new AppointmentNotFoundException(appointmentId);
             await new AppointmentScopeResolver(permissions).EnsureOwnsAsync(actorId, appointment, false, ct);
             AppointmentStateChanges.Change(appointment, appointment.Cancel);
+            await repository.UpdateAsync(appointment, ct);
             await auditWriter.AddAsync(new AppointmentAuditEntry(
                 actorId, AppointmentAuditActions.Cancel, appointment.Id, null, DateTimeOffset.UtcNow), ct);
             return appointment;

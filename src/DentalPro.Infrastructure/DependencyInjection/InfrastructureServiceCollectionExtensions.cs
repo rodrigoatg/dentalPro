@@ -2,6 +2,7 @@ using DentalPro.Application.Patients;
 using DentalPro.Application.Administration;
 using DentalPro.Application.Identity;
 using DentalPro.Application.AccessControl;
+using DentalPro.Application.Appointments;
 using DentalPro.Infrastructure.AccessControl;
 using DentalPro.Infrastructure.Identity;
 using DentalPro.Infrastructure.Administration;
@@ -47,6 +48,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddOptions<SecurityBootstrapOptions>()
             .Bind(configuration.GetSection(SecurityBootstrapOptions.SectionName));
         services.AddScoped<IPatientRepository, PatientRepository>();
+        services.AddScoped<IAppointmentRepository, AppointmentRepository>();
 
         return services;
     }

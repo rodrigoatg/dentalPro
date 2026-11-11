@@ -197,6 +197,7 @@ public sealed class AppointmentApplicationTests
         Assert.Equal(original.Id, replacement.RescheduledFromAppointmentId);
         Assert.Equal(patientId, replacement.PatientId);
         Assert.Equal(original.Id, fixture.Repository.LastExcludedAppointmentId);
+        Assert.Same(original, Assert.Single(fixture.Repository.UpdatedAppointments));
         Assert.Equal(2, fixture.Repository.CommittedAppointments.Count);
         Assert.Equal(AppointmentAuditActions.Reschedule, Assert.Single(fixture.Audit.CommittedEntries).Action);
         Assert.Equal(replacement.Id, fixture.Audit.CommittedEntries[0].RelatedAppointmentId);
@@ -233,12 +234,28 @@ public sealed class AppointmentApplicationTests
     public async Task CancelAppointment_ChangesStateAndRecordsAudit()
     {
         var actorId = Guid.NewGuid();
-        var appointment = Appointment.Create(Guid.NewGuid(), actorId, Start, Start.AddMinutes(30));
+        var id = Guid.NewGuid();
+        var patientId = Guid.NewGuid();
+        var previousId = Guid.NewGuid();
+        var historicalCreatedAt = Start.AddYears(-1);
+        var appointment = Appointment.Rehydrate(
+            id, patientId, actorId, Start, Start.AddMinutes(30), AppointmentStatus.Scheduled,
+            "Historical notes", previousId, historicalCreatedAt, historicalCreatedAt);
         var fixture = CreateFixture(actorId, appointments: [appointment]);
 
         await fixture.Cancel.ExecuteAsync(actorId, appointment.Id);
 
         Assert.Equal(AppointmentStatus.Cancelled, appointment.Status);
+        Assert.Same(appointment, Assert.Single(fixture.Repository.UpdatedAppointments));
+        Assert.Equal(id, appointment.Id);
+        Assert.Equal(patientId, appointment.PatientId);
+        Assert.Equal(actorId, appointment.DentistId);
+        Assert.Equal(Start, appointment.StartDateTime);
+        Assert.Equal(Start.AddMinutes(30), appointment.EndDateTime);
+        Assert.Equal("Historical notes", appointment.Notes);
+        Assert.Equal(previousId, appointment.RescheduledFromAppointmentId);
+        Assert.Equal(historicalCreatedAt, appointment.CreatedAt);
+        Assert.NotEqual(historicalCreatedAt, appointment.UpdatedAt);
         Assert.Equal(AppointmentAuditActions.Cancel, Assert.Single(fixture.Audit.CommittedEntries).Action);
     }
 
@@ -382,6 +399,7 @@ public sealed class AppointmentApplicationTests
         private readonly Dictionary<Guid, AppointmentStatus> _committedStatuses = [];
 
         public IReadOnlyList<Appointment> CommittedAppointments => _appointments;
+        public List<Appointment> UpdatedAppointments { get; } = [];
         public IReadOnlyDictionary<Guid, AppointmentStatus> CommittedStatuses => _committedStatuses;
         public Guid? LastListDentistId { get; private set; }
         public Guid? LastExcludedAppointmentId { get; private set; }
@@ -431,6 +449,12 @@ public sealed class AppointmentApplicationTests
         }
 
         public void Add(Appointment appointment) => _pendingAdds.Add(appointment);
+
+        public Task UpdateAsync(Appointment appointment, CancellationToken cancellationToken = default)
+        {
+            UpdatedAppointments.Add(appointment);
+            return Task.CompletedTask;
+        }
 
         public void Commit()
         {

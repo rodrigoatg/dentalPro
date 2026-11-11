@@ -44,6 +44,7 @@ public sealed class RescheduleAppointment(
                 throw new AppointmentInvalidStateTransitionException(exception.Message);
             }
 
+            await repository.UpdateAsync(original, ct);
             repository.Add(replacement);
             await auditWriter.AddAsync(new AppointmentAuditEntry(
                 actorId,

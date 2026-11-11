@@ -12,6 +12,8 @@ public interface IAppointmentRepository
 
     Task<Appointment?> GetByIdForUpdateAsync(Guid appointmentId, CancellationToken cancellationToken = default);
 
+    Task UpdateAsync(Appointment appointment, CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<Appointment>> GetBlockingAsync(
         Guid dentistId,
         Guid? patientId,

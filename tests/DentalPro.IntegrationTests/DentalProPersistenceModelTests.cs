@@ -2,8 +2,10 @@ using DentalPro.Domain.AccessControl;
 using DentalPro.Infrastructure.Identity;
 using DentalPro.Infrastructure.Persistence;
 using DentalPro.Infrastructure.Persistence.Models;
+using DentalPro.Domain.Appointments;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 
 namespace DentalPro.IntegrationTests;
@@ -20,7 +22,7 @@ public sealed class DentalProPersistenceModelTests
     }
 
     [Fact]
-    public void Model_MapsThreeTablesAndUniqueIndexes()
+    public void Model_MapsPatientClinicalAndAppointmentTablesAndUniqueIndexes()
     {
         using var context = CreateContext();
         var model = context.Model;
@@ -28,11 +30,51 @@ public sealed class DentalProPersistenceModelTests
         Assert.Equal("Patients", model.FindEntityType(typeof(PatientRow))!.GetTableName());
         Assert.Equal("MedicalRecords", model.FindEntityType(typeof(MedicalRecordRow))!.GetTableName());
         Assert.Equal("Odontograms", model.FindEntityType(typeof(OdontogramRow))!.GetTableName());
+        Assert.Equal("Appointments", model.FindEntityType(typeof(AppointmentRow))!.GetTableName());
 
         AssertUniqueIndex<PatientRow>(model, nameof(PatientRow.DocumentType), nameof(PatientRow.DocumentNumber));
         AssertUniqueIndex<MedicalRecordRow>(model, nameof(MedicalRecordRow.PatientId));
         AssertUniqueIndex<MedicalRecordRow>(model, nameof(MedicalRecordRow.MedicalRecordNumber));
         AssertUniqueIndex<OdontogramRow>(model, nameof(OdontogramRow.MedicalRecordId));
+        AssertUniqueIndex<AppointmentRow>(model, nameof(AppointmentRow.RescheduledFromAppointmentId));
+    }
+
+    [Fact]
+    public void Model_MapsAppointmentColumnsChecksIndexesAndRestrictedForeignKeys()
+    {
+        using var context = CreateContext();
+        var model = context.Model;
+        var appointmentType = model.FindEntityType(typeof(AppointmentRow))!;
+
+        Assert.Equal("PK_Appointments", appointmentType.FindPrimaryKey()!.GetName());
+        Assert.Equal("uuid", appointmentType.FindProperty(nameof(AppointmentRow.Id))!.GetColumnType());
+        Assert.Equal("uuid", appointmentType.FindProperty(nameof(AppointmentRow.PatientId))!.GetColumnType());
+        Assert.Equal("uuid", appointmentType.FindProperty(nameof(AppointmentRow.DentistId))!.GetColumnType());
+        Assert.Equal("timestamptz", appointmentType.FindProperty(nameof(AppointmentRow.StartDateTime))!.GetColumnType());
+        Assert.Equal("timestamptz", appointmentType.FindProperty(nameof(AppointmentRow.EndDateTime))!.GetColumnType());
+        Assert.Equal("timestamptz", appointmentType.FindProperty(nameof(AppointmentRow.CreatedAt))!.GetColumnType());
+        Assert.Equal("timestamptz", appointmentType.FindProperty(nameof(AppointmentRow.UpdatedAt))!.GetColumnType());
+        var status = appointmentType.FindProperty(nameof(AppointmentRow.Status))!;
+        Assert.Equal("text", status.GetColumnType());
+        Assert.Equal(typeof(string), status.GetTypeMapping().Converter!.ProviderClrType);
+
+        var designTimeAppointmentType = context.GetService<IDesignTimeModel>().Model
+            .FindEntityType(typeof(AppointmentRow))!;
+        Assert.Equal(
+            new[] { "CK_Appointments_EndAfterStart", "CK_Appointments_RescheduledFrom_Valid", "CK_Appointments_Status" },
+            designTimeAppointmentType.GetCheckConstraints().Select(constraint => constraint.Name!).Order().ToArray());
+
+        AssertIndex<AppointmentRow>(model, nameof(AppointmentRow.DentistId), nameof(AppointmentRow.StartDateTime), unique: false);
+        AssertIndex<AppointmentRow>(model, nameof(AppointmentRow.PatientId), nameof(AppointmentRow.StartDateTime), unique: false);
+        var rescheduledIndex = appointmentType.GetIndexes().Single(index =>
+            index.Properties.Select(property => property.Name)
+                .SequenceEqual([nameof(AppointmentRow.RescheduledFromAppointmentId)]));
+        Assert.True(rescheduledIndex.IsUnique);
+        Assert.Equal("\"RescheduledFromAppointmentId\" IS NOT NULL", rescheduledIndex.GetFilter());
+
+        AssertRelationship<PatientRow>(appointmentType, nameof(AppointmentRow.PatientId));
+        AssertRelationship<ApplicationUser>(appointmentType, nameof(AppointmentRow.DentistId));
+        AssertRelationship<AppointmentRow>(appointmentType, nameof(AppointmentRow.RescheduledFromAppointmentId));
     }
 
     [Fact]
@@ -103,4 +145,24 @@ public sealed class DentalProPersistenceModelTests
 
         Assert.True(index.IsUnique);
     }
+
+    private static void AssertIndex<TEntity>(
+        IModel model,
+        string propertyName1,
+        string propertyName2,
+        bool unique)
+    {
+        var entityType = model.FindEntityType(typeof(TEntity))!;
+        var index = entityType.GetIndexes().Single(candidate =>
+            candidate.Properties.Select(property => property.Name)
+                .SequenceEqual([propertyName1, propertyName2]));
+        Assert.Equal(unique, index.IsUnique);
+    }
+
+    private static void AssertRelationship<TPrincipal>(IEntityType entityType, string foreignKeyProperty) =>
+        Assert.Contains(entityType.GetForeignKeys(), foreignKey =>
+            foreignKey.PrincipalEntityType.ClrType == typeof(TPrincipal)
+            && foreignKey.Properties.Single().Name == foreignKeyProperty
+            && foreignKey.IsRequired == (foreignKeyProperty != nameof(AppointmentRow.RescheduledFromAppointmentId))
+            && foreignKey.DeleteBehavior == DeleteBehavior.Restrict);
 }

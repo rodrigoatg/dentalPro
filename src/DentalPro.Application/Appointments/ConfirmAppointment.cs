@@ -17,6 +17,7 @@ public sealed class ConfirmAppointment(
                 ?? throw new AppointmentNotFoundException(appointmentId);
             await new AppointmentScopeResolver(permissions).EnsureOwnsAsync(actorId, appointment, true, ct);
             AppointmentStateChanges.Change(appointment, appointment.Confirm);
+            await repository.UpdateAsync(appointment, ct);
             await auditWriter.AddAsync(new AppointmentAuditEntry(
                 actorId, AppointmentAuditActions.Confirm, appointment.Id, null, DateTimeOffset.UtcNow), ct);
             return appointment;

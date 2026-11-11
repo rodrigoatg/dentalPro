@@ -155,6 +155,63 @@ namespace DentalPro.Infrastructure.Persistence.Migrations
                     b.ToTable("AspNetUsers", (string)null);
                 });
 
+            modelBuilder.Entity("DentalPro.Infrastructure.Persistence.Models.AppointmentRow", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamptz");
+
+                    b.Property<Guid>("DentistId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("EndDateTime")
+                        .HasColumnType("timestamptz");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("PatientId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("RescheduledFromAppointmentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("StartDateTime")
+                        .HasColumnType("timestamptz");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamptz");
+
+                    b.HasKey("Id")
+                        .HasName("PK_Appointments");
+
+                    b.HasIndex("RescheduledFromAppointmentId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Appointments_RescheduledFromAppointmentId")
+                        .HasFilter("\"RescheduledFromAppointmentId\" IS NOT NULL");
+
+                    b.HasIndex("DentistId", "StartDateTime")
+                        .HasDatabaseName("IX_Appointments_DentistId_StartDateTime");
+
+                    b.HasIndex("PatientId", "StartDateTime")
+                        .HasDatabaseName("IX_Appointments_PatientId_StartDateTime");
+
+                    b.ToTable("Appointments", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Appointments_EndAfterStart", "\"StartDateTime\" < \"EndDateTime\"");
+
+                            t.HasCheckConstraint("CK_Appointments_RescheduledFrom_Valid", "\"RescheduledFromAppointmentId\" IS NULL OR (\"RescheduledFromAppointmentId\" <> '00000000-0000-0000-0000-000000000000' AND \"RescheduledFromAppointmentId\" <> \"Id\")");
+
+                            t.HasCheckConstraint("CK_Appointments_Status", "\"Status\" IN ('Scheduled', 'Confirmed', 'Completed', 'Cancelled', 'Rescheduled')");
+                        });
+                });
+
             modelBuilder.Entity("DentalPro.Infrastructure.Persistence.Models.MedicalRecordRow", b =>
                 {
                     b.Property<Guid>("Id")
@@ -416,6 +473,29 @@ namespace DentalPro.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("FK_RolePermissions_AspNetRoles_RoleId");
+                });
+
+            modelBuilder.Entity("DentalPro.Infrastructure.Persistence.Models.AppointmentRow", b =>
+                {
+                    b.HasOne("DentalPro.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("DentistId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_Appointments_AspNetUsers_DentistId");
+
+                    b.HasOne("DentalPro.Infrastructure.Persistence.Models.PatientRow", null)
+                        .WithMany()
+                        .HasForeignKey("PatientId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_Appointments_Patients_PatientId");
+
+                    b.HasOne("DentalPro.Infrastructure.Persistence.Models.AppointmentRow", null)
+                        .WithMany()
+                        .HasForeignKey("RescheduledFromAppointmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("FK_Appointments_Appointments_RescheduledFromAppointmentId");
                 });
 
             modelBuilder.Entity("DentalPro.Infrastructure.Persistence.Models.MedicalRecordRow", b =>
