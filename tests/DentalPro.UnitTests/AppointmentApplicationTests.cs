@@ -84,6 +84,7 @@ public sealed class AppointmentApplicationTests
         Assert.Collection(result.AvailableIntervals,
             interval => Assert.Equal(new AppointmentInterval(Start, Start.AddMinutes(30)), interval),
             interval => Assert.Equal(new AppointmentInterval(Start.AddMinutes(75), Start.AddHours(2)), interval));
+        Assert.Equal(1, schedule.SnapshotReadCount);
     }
 
     [Theory]
@@ -129,6 +130,98 @@ public sealed class AppointmentApplicationTests
         Assert.Single(fixture.Repository.CommittedAppointments);
         Assert.Equal(AppointmentAuditActions.Create, Assert.Single(fixture.Audit.CommittedEntries).Action);
         Assert.Equal(actorId, fixture.Audit.CommittedEntries[0].ActorId);
+        Assert.Equal(30, appointment.DurationMinutes);
+        Assert.Equal(Start.AddMinutes(30), appointment.EndDateTime);
+    }
+
+    [Fact]
+    public async Task CreateAppointment_UsesCustomDurationEvenWhenItIsNotAnIncrementMultiple()
+    {
+        var actorId = Guid.NewGuid();
+        var fixture = CreateFixture(actorId);
+        var appointment = await fixture.Create.ExecuteAsync(actorId,
+            new CreateAppointmentCommand(Guid.NewGuid(), actorId, Start, 35));
+
+        Assert.Equal(35, appointment.DurationMinutes);
+        Assert.Equal(Start.AddMinutes(35), appointment.EndDateTime);
+    }
+
+    [Fact]
+    public async Task CreateAppointment_RejectsNonPositiveDuration()
+    {
+        var actorId = Guid.NewGuid();
+        var fixture = CreateFixture(actorId);
+        await Assert.ThrowsAsync<AppointmentDurationInvalidException>(() => fixture.Create.ExecuteAsync(actorId,
+            new CreateAppointmentCommand(Guid.NewGuid(), actorId, Start, 0)));
+        Assert.Empty(fixture.Repository.CommittedAppointments);
+    }
+
+    [Fact]
+    public async Task CreateAppointment_UsesChangedDefaultOnlyForFutureAppointments()
+    {
+        var actorId = Guid.NewGuid();
+        var fixture = CreateFixture(actorId);
+        var first = await fixture.Create.ExecuteAsync(actorId, CreateCommand(actorId));
+        fixture.Schedule.Settings = new ClinicScheduleSettings("UTC", 45, 15);
+        var second = await fixture.Create.ExecuteAsync(actorId,
+            new CreateAppointmentCommand(Guid.NewGuid(), actorId, Start.AddHours(1)));
+
+        Assert.Equal(30, first.DurationMinutes);
+        Assert.Equal(45, second.DurationMinutes);
+    }
+
+    [Fact]
+    public async Task Reschedule_WithoutDurationPreservesExistingEffectiveDuration()
+    {
+        var actorId = Guid.NewGuid();
+        var original = Appointment.Create(Guid.NewGuid(), actorId, Start, 50);
+        var fixture = CreateFixture(actorId, appointments: [original]);
+
+        var replacement = await fixture.Reschedule.ExecuteAsync(actorId,
+            new RescheduleAppointmentCommand(original.Id, actorId, Start.AddHours(1)));
+
+        Assert.Equal(50, replacement.DurationMinutes);
+        Assert.Equal(Start.AddHours(1).AddMinutes(50), replacement.EndDateTime);
+    }
+
+    [Fact]
+    public void ClinicScheduleTime_RejectsInvalidAndAmbiguousLocalTimes()
+    {
+        var settings = new ClinicScheduleSettings("America/New_York", 30, 15);
+        Assert.Throws<AppointmentLocalTimeInvalidException>(() =>
+            ClinicScheduleTime.ResolveLocalStart(new DateTimeOffset(2024, 3, 10, 2, 30, 0, TimeSpan.FromHours(-5)), settings));
+        Assert.Throws<AppointmentLocalTimeAmbiguousException>(() =>
+            ClinicScheduleTime.ResolveLocalStart(new DateTimeOffset(2024, 11, 3, 1, 30, 0, TimeSpan.FromHours(-4)), settings));
+    }
+
+    [Fact]
+    public void ClinicScheduleTime_ResolvesLocalWallTimeUsingConfiguredZone()
+    {
+        var settings = new ClinicScheduleSettings("America/Argentina/Buenos_Aires", 30, 15);
+        var local = new DateTimeOffset(2024, 7, 1, 10, 0, 0, TimeSpan.FromHours(-3));
+
+        Assert.Equal(new DateTimeOffset(2024, 7, 1, 13, 0, 0, TimeSpan.Zero),
+            ClinicScheduleTime.ResolveLocalStart(local, settings));
+        Assert.Throws<AppointmentLocalTimeOffsetMismatchException>(() =>
+            ClinicScheduleTime.ResolveLocalStart(new DateTimeOffset(2024, 7, 1, 10, 0, 0, TimeSpan.Zero), settings));
+    }
+
+    [Fact]
+    public async Task GetAvailability_DistinguishesUnconfiguredAndConfiguredClosedSchedule()
+    {
+        var actorId = Guid.NewGuid();
+        var missing = new FakeClinicSchedule([]) { Configured = false };
+        var missingQuery = new GetAppointmentAvailability(new FakeAppointmentRepository(), new FakeParticipants(),
+            missing, Permissions(AppointmentPermissionCodes.View));
+        await Assert.ThrowsAsync<ClinicScheduleNotConfiguredException>(() => missingQuery.ExecuteAsync(actorId,
+            new AppointmentAvailabilityQuery(Start, Start.AddHours(1), actorId)));
+
+        var closed = new FakeClinicSchedule([]);
+        var closedQuery = new GetAppointmentAvailability(new FakeAppointmentRepository(), new FakeParticipants(),
+            closed, Permissions(AppointmentPermissionCodes.View));
+        var availability = await closedQuery.ExecuteAsync(actorId,
+            new AppointmentAvailabilityQuery(Start, Start.AddHours(1), actorId));
+        Assert.Empty(availability.AvailableIntervals);
     }
 
     [Fact]
@@ -141,6 +234,48 @@ public sealed class AppointmentApplicationTests
             fixture.Create.ExecuteAsync(actorId, CreateCommand(Guid.NewGuid())));
 
         Assert.Empty(fixture.Repository.CommittedAppointments);
+    }
+
+    [Fact]
+    public async Task CreateAppointment_RequiresCreatePermissionEvenWithGeneralReadScope()
+    {
+        var actorId = Guid.NewGuid();
+        var fixture = CreateFixture(actorId, permissions: Permissions(
+            AppointmentPermissionCodes.View, AppointmentPermissionCodes.ViewAll));
+
+        await Assert.ThrowsAsync<AppointmentOutOfScopeException>(() =>
+            fixture.Create.ExecuteAsync(actorId, CreateCommand(actorId)));
+
+        Assert.Empty(fixture.Repository.CommittedAppointments);
+        Assert.Empty(fixture.Audit.CommittedEntries);
+    }
+
+    [Theory]
+    [InlineData("create")]
+    [InlineData("update")]
+    [InlineData("cancel")]
+    [InlineData("confirm")]
+    [InlineData("complete")]
+    public async Task AppointmentActions_RequireTheirOwnPermission(string operationName)
+    {
+        var actorId = Guid.NewGuid();
+        var appointment = Appointment.Create(Guid.NewGuid(), actorId, Start, Start.AddMinutes(30));
+        var fixture = CreateFixture(actorId, appointments: [appointment], permissions: Permissions(AppointmentPermissionCodes.View));
+        Func<Task> operation = operationName switch
+        {
+            "create" => () => fixture.Create.ExecuteAsync(actorId, CreateCommand(actorId)),
+            "update" => () => fixture.Reschedule.ExecuteAsync(actorId,
+                new RescheduleAppointmentCommand(appointment.Id, actorId, Start.AddHours(1))),
+            "cancel" => () => fixture.Cancel.ExecuteAsync(actorId, appointment.Id),
+            "confirm" => () => fixture.Confirm.ExecuteAsync(actorId, appointment.Id),
+            "complete" => () => fixture.Complete.ExecuteAsync(actorId, appointment.Id),
+            _ => throw new ArgumentOutOfRangeException(nameof(operationName))
+        };
+
+        await Assert.ThrowsAsync<AppointmentOutOfScopeException>(operation);
+
+        Assert.Equal(AppointmentStatus.Scheduled, appointment.Status);
+        Assert.Empty(fixture.Audit.CommittedEntries);
     }
 
     [Fact]
@@ -231,6 +366,21 @@ public sealed class AppointmentApplicationTests
     }
 
     [Fact]
+    public async Task Reschedule_CannotMoveAppointmentToDentistOutsideAuthorizedScope()
+    {
+        var actorId = Guid.NewGuid();
+        var original = Appointment.Create(Guid.NewGuid(), actorId, Start, Start.AddMinutes(30));
+        var fixture = CreateFixture(actorId, appointments: [original]);
+
+        await Assert.ThrowsAsync<AppointmentOutOfScopeException>(() => fixture.Reschedule.ExecuteAsync(actorId,
+            new RescheduleAppointmentCommand(original.Id, Guid.NewGuid(), Start.AddHours(1))));
+
+        Assert.Equal(AppointmentStatus.Scheduled, original.Status);
+        Assert.Single(fixture.Repository.CommittedAppointments);
+        Assert.Empty(fixture.Audit.CommittedEntries);
+    }
+
+    [Fact]
     public async Task CancelAppointment_ChangesStateAndRecordsAudit()
     {
         var actorId = Guid.NewGuid();
@@ -260,7 +410,7 @@ public sealed class AppointmentApplicationTests
     }
 
     [Fact]
-    public async Task ConfirmAndComplete_RequireOwnershipEvenWithGeneralScope()
+    public async Task ConfirmAndComplete_AllowGeneralScopeAndRequireOwnScopeOtherwise()
     {
         var actorId = Guid.NewGuid();
         var otherDentistId = Guid.NewGuid();
@@ -268,14 +418,15 @@ public sealed class AppointmentApplicationTests
         var completed = Appointment.Create(Guid.NewGuid(), otherDentistId, Start.AddHours(1), Start.AddHours(1).AddMinutes(30));
         var fixture = CreateFixture(actorId,
             appointments: [confirmed, completed],
-            permissions: Permissions(AppointmentPermissionCodes.View, AppointmentPermissionCodes.ViewAll));
+            permissions: Permissions(AppointmentPermissionCodes.View, AppointmentPermissionCodes.ViewAll,
+                AppointmentPermissionCodes.Confirm, AppointmentPermissionCodes.Complete));
 
-        await Assert.ThrowsAsync<AppointmentOutOfScopeException>(() => fixture.Confirm.ExecuteAsync(actorId, confirmed.Id));
-        await Assert.ThrowsAsync<AppointmentOutOfScopeException>(() => fixture.Complete.ExecuteAsync(actorId, completed.Id));
+        await fixture.Confirm.ExecuteAsync(actorId, confirmed.Id);
+        await fixture.Complete.ExecuteAsync(actorId, completed.Id);
 
-        Assert.Equal(AppointmentStatus.Scheduled, confirmed.Status);
-        Assert.Equal(AppointmentStatus.Scheduled, completed.Status);
-        Assert.Empty(fixture.Audit.CommittedEntries);
+        Assert.Equal(AppointmentStatus.Confirmed, confirmed.Status);
+        Assert.Equal(AppointmentStatus.Completed, completed.Status);
+        Assert.Equal(2, fixture.Audit.CommittedEntries.Count);
     }
 
     [Fact]
@@ -338,11 +489,14 @@ public sealed class AppointmentApplicationTests
         var unitOfWork = new FakeAppointmentUnitOfWork(repository, audit);
         var participantQuery = participants ?? new FakeParticipants();
         var schedule = new FakeClinicSchedule(openings ?? [new AppointmentInterval(Start.AddDays(-1), Start.AddDays(2))]);
-        var permissionQuery = permissions ?? Permissions(AppointmentPermissionCodes.View);
+        var permissionQuery = permissions ?? Permissions(AppointmentPermissionCodes.View,
+            AppointmentPermissionCodes.Create, AppointmentPermissionCodes.Update, AppointmentPermissionCodes.Cancel,
+            AppointmentPermissionCodes.Confirm, AppointmentPermissionCodes.Complete);
         return new Fixture(
             actorId,
             repository,
             audit,
+            schedule,
             new CreateAppointment(repository, participantQuery, schedule, unitOfWork, audit, permissionQuery),
             new RescheduleAppointment(repository, participantQuery, schedule, unitOfWork, audit, permissionQuery),
             new CancelAppointment(repository, unitOfWork, audit, permissionQuery),
@@ -354,6 +508,7 @@ public sealed class AppointmentApplicationTests
         Guid ActorId,
         FakeAppointmentRepository Repository,
         FakeAuditEventWriter Audit,
+        FakeClinicSchedule Schedule,
         CreateAppointment Create,
         RescheduleAppointment Reschedule,
         CancelAppointment Cancel,
@@ -381,15 +536,46 @@ public sealed class AppointmentApplicationTests
 
         public Task<AppointmentDentistStatus> GetDentistStatusAsync(Guid dentistId, CancellationToken cancellationToken = default) =>
             Task.FromResult(DentistStatus);
+
+        public Task<IReadOnlyDictionary<Guid, AppointmentParticipantName>> GetPatientNamesAsync(
+            IReadOnlyCollection<Guid> patientIds, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyDictionary<Guid, AppointmentParticipantName>>(patientIds.ToDictionary(
+                id => id, _ => new AppointmentParticipantName("Patient", "Test")));
+
+        public Task<IReadOnlyDictionary<Guid, AppointmentParticipantName>> GetDentistNamesAsync(
+            IReadOnlyCollection<Guid> dentistIds, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyDictionary<Guid, AppointmentParticipantName>>(dentistIds.ToDictionary(
+                id => id, _ => new AppointmentParticipantName("Dentist", "Test")));
+
+        public Task<IReadOnlyList<AppointmentDentistOption>> ListActiveDentistsAsync(
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<AppointmentDentistOption>>([]);
     }
 
     private sealed class FakeClinicSchedule(AppointmentInterval[] openings) : IClinicScheduleQuery
     {
+        public bool Configured { get; set; } = true;
+        public ClinicScheduleSettings Settings { get; set; } = new("UTC", 30, 15);
+        public int SnapshotReadCount { get; private set; }
+
+        public Task<ClinicScheduleSettings> GetSettingsAsync(CancellationToken cancellationToken = default) => Configured
+            ? Task.FromResult(Settings)
+            : Task.FromException<ClinicScheduleSettings>(new ClinicScheduleNotConfiguredException());
+
         public Task<IReadOnlyList<AppointmentInterval>> GetOpenIntervalsAsync(
             DateTimeOffset from,
             DateTimeOffset to,
             CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<AppointmentInterval>>(openings);
+
+        public Task<ClinicScheduleAvailabilitySnapshot> GetAvailabilitySnapshotAsync(
+            DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken = default)
+        {
+            SnapshotReadCount++;
+            return Configured
+                ? Task.FromResult(new ClinicScheduleAvailabilitySnapshot(Settings, openings))
+                : Task.FromException<ClinicScheduleAvailabilitySnapshot>(new ClinicScheduleNotConfiguredException());
+        }
     }
 
     private sealed class FakeAppointmentRepository : IAppointmentRepository

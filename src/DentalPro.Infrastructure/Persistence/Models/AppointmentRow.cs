@@ -14,6 +14,8 @@ public sealed class AppointmentRow
 
     public DateTimeOffset EndDateTime { get; set; }
 
+    public int DurationMinutes { get; set; }
+
     public AppointmentStatus Status { get; set; }
 
     public string? Notes { get; set; }

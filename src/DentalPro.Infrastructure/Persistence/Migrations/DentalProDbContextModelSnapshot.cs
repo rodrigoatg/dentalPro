@@ -166,6 +166,9 @@ namespace DentalPro.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("DentistId")
                         .HasColumnType("uuid");
 
+                    b.Property<int>("DurationMinutes")
+                        .HasColumnType("integer");
+
                     b.Property<DateTimeOffset>("EndDateTime")
                         .HasColumnType("timestamptz");
 
@@ -204,6 +207,10 @@ namespace DentalPro.Infrastructure.Persistence.Migrations
 
                     b.ToTable("Appointments", null, t =>
                         {
+                            t.HasCheckConstraint("CK_Appointments_DurationMatchesInterval", "\"EndDateTime\" = \"StartDateTime\" + make_interval(mins => \"DurationMinutes\")");
+
+                            t.HasCheckConstraint("CK_Appointments_DurationMinutes_Positive", "\"DurationMinutes\" > 0");
+
                             t.HasCheckConstraint("CK_Appointments_EndAfterStart", "\"StartDateTime\" < \"EndDateTime\"");
 
                             t.HasCheckConstraint("CK_Appointments_RescheduledFrom_Valid", "\"RescheduledFromAppointmentId\" IS NULL OR (\"RescheduledFromAppointmentId\" <> '00000000-0000-0000-0000-000000000000' AND \"RescheduledFromAppointmentId\" <> \"Id\")");
@@ -247,6 +254,121 @@ namespace DentalPro.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("IX_AuditEvents_EntityType_EntityId_OccurredAt");
 
                     b.ToTable("AuditEvents", (string)null);
+                });
+
+            modelBuilder.Entity("DentalPro.Infrastructure.Persistence.Models.ClinicScheduleDateExceptionRow", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ClinicScheduleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.HasKey("Id")
+                        .HasName("PK_ClinicScheduleExceptions");
+
+                    b.HasIndex("ClinicScheduleId", "Date")
+                        .IsUnique()
+                        .HasDatabaseName("UX_ClinicScheduleExceptions_Schedule_Date");
+
+                    b.ToTable("ClinicScheduleExceptions", (string)null);
+                });
+
+            modelBuilder.Entity("DentalPro.Infrastructure.Persistence.Models.ClinicScheduleExceptionIntervalRow", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ClinicScheduleDateExceptionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<TimeOnly>("End")
+                        .HasColumnType("time without time zone");
+
+                    b.Property<TimeOnly>("Start")
+                        .HasColumnType("time without time zone");
+
+                    b.HasKey("Id")
+                        .HasName("PK_ClinicScheduleExceptionIntervals");
+
+                    b.HasIndex("ClinicScheduleDateExceptionId", "Start")
+                        .HasDatabaseName("IX_ClinicScheduleExceptionIntervals_Exception_Start");
+
+                    b.ToTable("ClinicScheduleExceptionIntervals", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_ClinicScheduleExceptionIntervals_StartBeforeEnd", "\"Start\" < \"End\"");
+                        });
+                });
+
+            modelBuilder.Entity("DentalPro.Infrastructure.Persistence.Models.ClinicScheduleRow", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("DefaultAppointmentDurationMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<short>("SingletonKey")
+                        .HasColumnType("smallint");
+
+                    b.Property<int>("StartIncrementMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TimeZoneId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id")
+                        .HasName("PK_ClinicSchedules");
+
+                    b.HasIndex("SingletonKey")
+                        .IsUnique()
+                        .HasDatabaseName("UX_ClinicSchedules_SingletonKey");
+
+                    b.ToTable("ClinicSchedules", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_ClinicSchedules_DefaultDuration_Positive", "\"DefaultAppointmentDurationMinutes\" > 0");
+
+                            t.HasCheckConstraint("CK_ClinicSchedules_Singleton", "\"SingletonKey\" = 1");
+
+                            t.HasCheckConstraint("CK_ClinicSchedules_StartIncrement_Positive", "\"StartIncrementMinutes\" > 0");
+
+                            t.HasCheckConstraint("CK_ClinicSchedules_TimeZoneId_NotBlank", "length(btrim(\"TimeZoneId\")) > 0");
+                        });
+                });
+
+            modelBuilder.Entity("DentalPro.Infrastructure.Persistence.Models.ClinicWeeklyIntervalRow", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ClinicScheduleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<short>("DayOfWeek")
+                        .HasColumnType("smallint");
+
+                    b.Property<TimeOnly>("End")
+                        .HasColumnType("time without time zone");
+
+                    b.Property<TimeOnly>("Start")
+                        .HasColumnType("time without time zone");
+
+                    b.HasKey("Id")
+                        .HasName("PK_ClinicWeeklyIntervals");
+
+                    b.HasIndex("ClinicScheduleId", "DayOfWeek", "Start")
+                        .HasDatabaseName("IX_ClinicWeeklyIntervals_Schedule_Day_Start");
+
+                    b.ToTable("ClinicWeeklyIntervals", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_ClinicWeeklyIntervals_DayOfWeek", "\"DayOfWeek\" BETWEEN 0 AND 6");
+
+                            t.HasCheckConstraint("CK_ClinicWeeklyIntervals_StartBeforeEnd", "\"Start\" < \"End\"");
+                        });
                 });
 
             modelBuilder.Entity("DentalPro.Infrastructure.Persistence.Models.MedicalRecordRow", b =>
@@ -545,6 +667,36 @@ namespace DentalPro.Infrastructure.Persistence.Migrations
                         .HasConstraintName("FK_AuditEvents_AspNetUsers_ActorId");
                 });
 
+            modelBuilder.Entity("DentalPro.Infrastructure.Persistence.Models.ClinicScheduleDateExceptionRow", b =>
+                {
+                    b.HasOne("DentalPro.Infrastructure.Persistence.Models.ClinicScheduleRow", null)
+                        .WithMany("DateExceptions")
+                        .HasForeignKey("ClinicScheduleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_ClinicScheduleExceptions_ClinicSchedules_ClinicScheduleId");
+                });
+
+            modelBuilder.Entity("DentalPro.Infrastructure.Persistence.Models.ClinicScheduleExceptionIntervalRow", b =>
+                {
+                    b.HasOne("DentalPro.Infrastructure.Persistence.Models.ClinicScheduleDateExceptionRow", null)
+                        .WithMany("Intervals")
+                        .HasForeignKey("ClinicScheduleDateExceptionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_ClinicScheduleExceptionIntervals_ClinicScheduleExceptions_ExceptionId");
+                });
+
+            modelBuilder.Entity("DentalPro.Infrastructure.Persistence.Models.ClinicWeeklyIntervalRow", b =>
+                {
+                    b.HasOne("DentalPro.Infrastructure.Persistence.Models.ClinicScheduleRow", null)
+                        .WithMany("WeeklyIntervals")
+                        .HasForeignKey("ClinicScheduleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_ClinicWeeklyIntervals_ClinicSchedules_ClinicScheduleId");
+                });
+
             modelBuilder.Entity("DentalPro.Infrastructure.Persistence.Models.MedicalRecordRow", b =>
                 {
                     b.HasOne("DentalPro.Infrastructure.Persistence.Models.PatientRow", "Patient")
@@ -618,6 +770,18 @@ namespace DentalPro.Infrastructure.Persistence.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("DentalPro.Infrastructure.Persistence.Models.ClinicScheduleDateExceptionRow", b =>
+                {
+                    b.Navigation("Intervals");
+                });
+
+            modelBuilder.Entity("DentalPro.Infrastructure.Persistence.Models.ClinicScheduleRow", b =>
+                {
+                    b.Navigation("DateExceptions");
+
+                    b.Navigation("WeeklyIntervals");
                 });
 
             modelBuilder.Entity("DentalPro.Infrastructure.Persistence.Models.MedicalRecordRow", b =>

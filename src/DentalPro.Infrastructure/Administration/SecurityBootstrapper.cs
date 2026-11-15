@@ -60,10 +60,32 @@ public sealed class SecurityBootstrapper(
             .Where(role => role.Name != null && SystemRoles.All.Contains(role.Name))
             .ToDictionaryAsync(role => role.Name!, role => role.Id, StringComparer.Ordinal, cancellationToken);
         var desired = new HashSet<(Guid RoleId, Guid PermissionId)>();
-        var patientPermissions = new[] { PermissionCatalog.PatientsView, PermissionCatalog.PatientsCreate };
+        var initialAssignments = new Dictionary<string, string[]>(StringComparer.Ordinal)
+        {
+            [SystemRoles.Administrator] =
+            [
+                PermissionCatalog.AppointmentsView, PermissionCatalog.AppointmentsViewAll,
+                PermissionCatalog.AppointmentsCreate, PermissionCatalog.AppointmentsUpdate,
+                PermissionCatalog.AppointmentsCancel, PermissionCatalog.AppointmentsConfirm,
+                PermissionCatalog.AppointmentsComplete, PermissionCatalog.AppointmentsScheduleManage
+            ],
+            [SystemRoles.Receptionist] =
+            [
+                PermissionCatalog.AppointmentsView, PermissionCatalog.AppointmentsViewAll,
+                PermissionCatalog.AppointmentsCreate, PermissionCatalog.AppointmentsUpdate,
+                PermissionCatalog.AppointmentsCancel, PermissionCatalog.AppointmentsConfirm,
+                PermissionCatalog.AppointmentsComplete
+            ],
+            [SystemRoles.Dentist] =
+            [
+                PermissionCatalog.AppointmentsView, PermissionCatalog.AppointmentsConfirm,
+                PermissionCatalog.AppointmentsComplete
+            ]
+        };
         foreach (var roleName in SystemRoles.All)
         {
-            foreach (var code in patientPermissions)
+            foreach (var code in new[] { PermissionCatalog.PatientsView, PermissionCatalog.PatientsCreate }
+                         .Concat(initialAssignments[roleName]))
             {
                 desired.Add((roleIds[roleName], permissionsByCode[code].Id));
             }

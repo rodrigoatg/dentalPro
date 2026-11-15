@@ -26,10 +26,11 @@ public sealed class GetAppointmentAvailability(
 
         var from = query.From.ToUniversalTime();
         var to = query.To.ToUniversalTime();
-        var openings = await clinicSchedule.GetOpenIntervalsAsync(from, to, cancellationToken);
+        var schedule = await clinicSchedule.GetAvailabilitySnapshotAsync(from, to, cancellationToken);
         var busy = await repository.GetBlockingAsync(
             query.DentistId, query.PatientId, from, to, cancellationToken: cancellationToken);
-        return new AppointmentAvailability(SubtractBusyIntervals(openings, busy, from, to));
+        return new AppointmentAvailability(SubtractBusyIntervals(schedule.OpenIntervals, busy, from, to),
+            schedule.Settings.DefaultAppointmentDurationMinutes, schedule.Settings.StartIncrementMinutes);
     }
 
     internal static async Task ValidatePatientAsync(

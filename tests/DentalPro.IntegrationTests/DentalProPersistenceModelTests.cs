@@ -31,6 +31,10 @@ public sealed class DentalProPersistenceModelTests
         Assert.Equal("MedicalRecords", model.FindEntityType(typeof(MedicalRecordRow))!.GetTableName());
         Assert.Equal("Odontograms", model.FindEntityType(typeof(OdontogramRow))!.GetTableName());
         Assert.Equal("Appointments", model.FindEntityType(typeof(AppointmentRow))!.GetTableName());
+        Assert.Equal("ClinicSchedules", model.FindEntityType(typeof(ClinicScheduleRow))!.GetTableName());
+        Assert.Equal("ClinicWeeklyIntervals", model.FindEntityType(typeof(ClinicWeeklyIntervalRow))!.GetTableName());
+        Assert.Equal("ClinicScheduleExceptions", model.FindEntityType(typeof(ClinicScheduleDateExceptionRow))!.GetTableName());
+        Assert.Equal("ClinicScheduleExceptionIntervals", model.FindEntityType(typeof(ClinicScheduleExceptionIntervalRow))!.GetTableName());
 
         AssertUniqueIndex<PatientRow>(model, nameof(PatientRow.DocumentType), nameof(PatientRow.DocumentNumber));
         AssertUniqueIndex<MedicalRecordRow>(model, nameof(MedicalRecordRow.PatientId));
@@ -52,6 +56,7 @@ public sealed class DentalProPersistenceModelTests
         Assert.Equal("uuid", appointmentType.FindProperty(nameof(AppointmentRow.DentistId))!.GetColumnType());
         Assert.Equal("timestamptz", appointmentType.FindProperty(nameof(AppointmentRow.StartDateTime))!.GetColumnType());
         Assert.Equal("timestamptz", appointmentType.FindProperty(nameof(AppointmentRow.EndDateTime))!.GetColumnType());
+        Assert.Equal("integer", appointmentType.FindProperty(nameof(AppointmentRow.DurationMinutes))!.GetColumnType());
         Assert.Equal("timestamptz", appointmentType.FindProperty(nameof(AppointmentRow.CreatedAt))!.GetColumnType());
         Assert.Equal("timestamptz", appointmentType.FindProperty(nameof(AppointmentRow.UpdatedAt))!.GetColumnType());
         var status = appointmentType.FindProperty(nameof(AppointmentRow.Status))!;
@@ -61,7 +66,8 @@ public sealed class DentalProPersistenceModelTests
         var designTimeAppointmentType = context.GetService<IDesignTimeModel>().Model
             .FindEntityType(typeof(AppointmentRow))!;
         Assert.Equal(
-            new[] { "CK_Appointments_EndAfterStart", "CK_Appointments_RescheduledFrom_Valid", "CK_Appointments_Status" },
+            new[] { "CK_Appointments_DurationMatchesInterval", "CK_Appointments_DurationMinutes_Positive",
+                "CK_Appointments_EndAfterStart", "CK_Appointments_RescheduledFrom_Valid", "CK_Appointments_Status" },
             designTimeAppointmentType.GetCheckConstraints().Select(constraint => constraint.Name!).Order().ToArray());
 
         AssertIndex<AppointmentRow>(model, nameof(AppointmentRow.DentistId), nameof(AppointmentRow.StartDateTime), unique: false);
@@ -75,6 +81,26 @@ public sealed class DentalProPersistenceModelTests
         AssertRelationship<PatientRow>(appointmentType, nameof(AppointmentRow.PatientId));
         AssertRelationship<ApplicationUser>(appointmentType, nameof(AppointmentRow.DentistId));
         AssertRelationship<AppointmentRow>(appointmentType, nameof(AppointmentRow.RescheduledFromAppointmentId));
+    }
+
+    [Fact]
+    public void Model_MapsClinicScheduleSingletonLocalTimesAndExceptionDates()
+    {
+        using var context = CreateContext();
+        var model = context.Model;
+        var schedule = model.FindEntityType(typeof(ClinicScheduleRow))!;
+        var weekly = model.FindEntityType(typeof(ClinicWeeklyIntervalRow))!;
+        var exception = model.FindEntityType(typeof(ClinicScheduleDateExceptionRow))!;
+        var exceptionInterval = model.FindEntityType(typeof(ClinicScheduleExceptionIntervalRow))!;
+
+        Assert.Equal("smallint", schedule.FindProperty(nameof(ClinicScheduleRow.SingletonKey))!.GetColumnType());
+        Assert.True(schedule.GetIndexes().Single(index => index.Properties.Single().Name == nameof(ClinicScheduleRow.SingletonKey)).IsUnique);
+        Assert.Equal("time without time zone", weekly.FindProperty(nameof(ClinicWeeklyIntervalRow.Start))!.GetColumnType());
+        Assert.Equal("date", exception.FindProperty(nameof(ClinicScheduleDateExceptionRow.Date))!.GetColumnType());
+        Assert.Equal("time without time zone", exceptionInterval.FindProperty(nameof(ClinicScheduleExceptionIntervalRow.End))!.GetColumnType());
+        Assert.Contains(exception.GetIndexes(), index => index.IsUnique
+            && index.Properties.Select(property => property.Name)
+                .SequenceEqual([nameof(ClinicScheduleDateExceptionRow.ClinicScheduleId), nameof(ClinicScheduleDateExceptionRow.Date)]));
     }
 
     [Fact]

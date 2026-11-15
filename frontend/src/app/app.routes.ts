@@ -25,6 +25,12 @@ export const routes: Routes = [
     loadComponent: () => import('./patients/patient-list').then((module) => module.PatientList),
   },
   {
+    path: 'appointments',
+    canActivate: [permissionGuard],
+    data: { permission: 'appointments.view' },
+    loadComponent: () => import('./appointments/agenda').then((module) => module.Agenda),
+  },
+  {
     path: 'admin',
     canActivate: [permissionGuard],
     data: { permissionsAny: ['users.view', 'roles.view', 'permissions.view'] },

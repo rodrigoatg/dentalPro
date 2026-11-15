@@ -49,8 +49,12 @@ public static class InfrastructureServiceCollectionExtensions
             .Bind(configuration.GetSection(SecurityBootstrapOptions.SectionName));
         services.AddScoped<IPatientRepository, PatientRepository>();
         services.AddScoped<IAppointmentRepository, AppointmentRepository>();
+        services.AddScoped<IAppointmentParticipantQuery, AppointmentParticipantQuery>();
         services.AddScoped<IAppointmentUnitOfWork, AppointmentUnitOfWork>();
         services.AddScoped<IAuditEventWriter, AuditEventWriter>();
+        services.AddScoped<ClinicSchedulePersistence>();
+        services.AddScoped<IClinicScheduleQuery>(provider => provider.GetRequiredService<ClinicSchedulePersistence>());
+        services.AddScoped<IClinicScheduleRepository>(provider => provider.GetRequiredService<ClinicSchedulePersistence>());
 
         return services;
     }

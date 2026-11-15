@@ -23,6 +23,9 @@ public sealed class AppointmentConfiguration : IEntityTypeConfiguration<Appointm
             table.HasCheckConstraint(
                 "CK_Appointments_EndAfterStart",
                 "\"StartDateTime\" < \"EndDateTime\"");
+            table.HasCheckConstraint("CK_Appointments_DurationMinutes_Positive", "\"DurationMinutes\" > 0");
+            table.HasCheckConstraint("CK_Appointments_DurationMatchesInterval",
+                "\"EndDateTime\" = \"StartDateTime\" + make_interval(mins => \"DurationMinutes\")");
             table.HasCheckConstraint("CK_Appointments_Status", StatusCheck);
             table.HasCheckConstraint("CK_Appointments_RescheduledFrom_Valid", RescheduledFromCheck);
         });
@@ -33,6 +36,7 @@ public sealed class AppointmentConfiguration : IEntityTypeConfiguration<Appointm
         builder.Property(appointment => appointment.DentistId).HasColumnType("uuid").IsRequired();
         builder.Property(appointment => appointment.StartDateTime).HasColumnType("timestamptz").IsRequired();
         builder.Property(appointment => appointment.EndDateTime).HasColumnType("timestamptz").IsRequired();
+        builder.Property(appointment => appointment.DurationMinutes).HasColumnType("integer").IsRequired();
         builder.Property(appointment => appointment.Status)
             .HasConversion<string>()
             .HasColumnType("text")

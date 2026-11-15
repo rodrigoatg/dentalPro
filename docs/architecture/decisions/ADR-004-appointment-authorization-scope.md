@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted for Stage 0; implementation is pending.
+Accepted; Application authorization and additive bootstrap assignments are implemented. HTTP endpoints remain pending.
 
 ## Context
 
@@ -31,27 +31,27 @@ access must be seeded explicitly rather than inferred from the role name.
 
    | Role | Initial appointment permissions |
    | --- | --- |
-   | Administrator | `appointments.view`, `appointments.view.all`, `appointments.create`, `appointments.update`, `appointments.cancel`, `appointments.schedule.manage` |
-   | Receptionist | `appointments.view`, `appointments.view.all`, `appointments.create`, `appointments.update`, `appointments.cancel` |
+   | Administrator | `appointments.view`, `appointments.view.all`, `appointments.create`, `appointments.update`, `appointments.cancel`, `appointments.confirm`, `appointments.complete`, `appointments.schedule.manage` |
+   | Receptionist | `appointments.view`, `appointments.view.all`, `appointments.create`, `appointments.update`, `appointments.cancel`, `appointments.confirm`, `appointments.complete` |
    | Dentist | `appointments.view`, `appointments.confirm`, `appointments.complete` |
 
 4. `appointments.update` means reschedule. Dentist does not initially receive
    create, update or cancel permission. A caller without clinic-wide scope
-   may create only for their own DentistId and may update/cancel only their
-   own appointments if those action permissions are ever assigned. Dentist
-   confirm and complete remain owner-only: the appointment's `DentistId` must
-   equal the authenticated user's ID, even if the caller has clinic-wide
-   agenda visibility through another role. Application/API must perform
-   these checks on every request.
+   may create only for their own DentistId and may update/cancel/confirm/
+   complete only appointments assigned to their own DentistId. A caller with
+   `appointments.view.all` may act on any Dentist's appointment only when
+   they also have the corresponding action permission. Application/API must
+   perform both checks on every request.
 5. `appointments.schedule.manage` is an additional permission required by
    FR-006 for configuring clinic hours and exceptions. It is assigned
    explicitly to Administrator. It is not marked as a protected Identity
    administration permission.
 6. These assignments are initial, additive bootstrap assignments. They use
    the existing role-permission mechanism and do not change the global RBAC
-   policy. They are not grants based solely on role names. Permissions enter
-   the code-defined backend catalog only when their corresponding endpoint
-   or schedule-management operation is implemented.
+   policy. Bootstrap creates missing permissions and assignments without
+   deleting existing assignments or changing user credentials/status. They
+   are not grants based solely on role names. The catalog and Application
+   checks are implemented; HTTP endpoint authorization remains pending.
 7. Appointment queries and mutations apply the caller's scope on the server.
    A supplied `dentistId` filter may narrow an authorized query but may never
    broaden the caller's scope. The frontend may hide actions using effective

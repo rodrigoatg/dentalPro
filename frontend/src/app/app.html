@@ -45,6 +45,9 @@
         ><span>Pacientes</span><span class="nav-arrow">&rsaquo;</span></a
       >
       }
+      @if (auth.hasPermission('appointments.view')) {
+        <a routerLink="/appointments" routerLinkActive="active"><span class="nav-icon" aria-hidden="true">T</span><span>Agenda</span><span class="nav-arrow">&rsaquo;</span></a>
+      }
       @if (auth.hasPermission('users.view') || auth.hasPermission('roles.view') || auth.hasPermission('permissions.view')) {
         <a routerLink="/admin" routerLinkActive="active"
           ><span class="nav-icon" aria-hidden="true">A</span><span>Administración</span><span class="nav-arrow">&rsaquo;</span></a
@@ -52,9 +55,6 @@
       }
     </nav>
     <div class="nav-section-label modules-label">M&Oacute;DULOS CL&Iacute;NICOS</div>
-    <div class="pending-nav">
-      <span class="pending-icon">T</span><span>Turnos</span><small>PENDIENTE</small>
-    </div>
     <div class="pending-nav">
       <span class="pending-icon">T</span><span>Tratamientos</span><small>PENDIENTE</small>
     </div>

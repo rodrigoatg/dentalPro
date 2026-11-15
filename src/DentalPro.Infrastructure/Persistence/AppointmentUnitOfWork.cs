@@ -38,7 +38,9 @@ public sealed class AppointmentUnitOfWork(
                 dbContext.ChangeTracker.Clear();
 
                 var postgresException = FindPostgresException(exception);
-                if (postgresException?.SqlState == PostgresErrorCodes.ExclusionViolation)
+                if (postgresException?.SqlState == PostgresErrorCodes.ExclusionViolation
+                    && postgresException.ConstraintName is "EX_Appointments_Dentist_NoOverlap"
+                        or "EX_Appointments_Patient_NoOverlap")
                 {
                     logger.LogWarning(
                         "Appointment overlap rejected by PostgreSQL exclusion constraint {ConstraintName} (SQLSTATE {SqlState}).",

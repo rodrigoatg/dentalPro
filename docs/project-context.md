@@ -60,6 +60,14 @@ Responsabilidades:
 
 Administrator no obtiene permisos clínicos por defecto.
 
+La configuración de agenda se persiste como una única configuración de
+clínica con zona horaria IANA, duración predeterminada, incremento de inicio,
+intervalos semanales y excepciones por fecha. No se preconfiguran valores; la
+agenda requiere una configuración explícita. Las horas locales se convierten
+con la zona configurada y los turnos se conservan en UTC junto con su duración
+efectiva. En esta etapa existen los casos de uso y la persistencia; los
+endpoints HTTP y las pantallas de administración siguen fuera de alcance.
+
 ---
 
 # 4. MVP Scope

@@ -2,7 +2,8 @@
 
 ## Status
 
-Accepted for Stage 0; implementation is pending.
+Accepted; appointment persistence and clinic schedule configuration are
+implemented in Infrastructure. API and UI remain pending.
 
 ## Context
 
@@ -24,18 +25,20 @@ originating zone ID. Npgsql requires `DateTimeOffset` values written as
 ### Time and clinic schedule
 
 - A required clinic configuration contains an IANA `ClinicTimeZoneId`, a
-  positive `DefaultAppointmentDurationMinutes`, recurring weekly opening
-  intervals, and date exceptions. No specific time zone is selected in this
-  ADR; the clinic's configured IANA ID is required before scheduling is
-  enabled.
+  positive `DefaultAppointmentDurationMinutes`, a positive
+  `StartIncrementMinutes`, recurring weekly opening intervals, and date
+  exceptions. No specific time zone or numeric values are selected in this
+  ADR; actual clinic configuration is required before scheduling is enabled.
 - Weekly intervals are local wall-clock times grouped by weekday. Date
   exceptions identify a local calendar date and either close the clinic or
   replace the normal intervals for that date. Holidays are manually managed
   date exceptions; no external calendar integration is added.
 - The first version has one clinic-wide default duration and no appointment
-  types or Dentist-specific schedules. Each booked Appointment persists its
-  resolved start and end, so changing the default affects only future
-  bookings.
+  types or Dentist-specific schedules. A booking may override the default
+  with any positive whole-minute duration; the start increment is independent
+  and only informs future UI suggestions. Each Appointment persists its UTC
+  start/end and effective duration, so changing the default affects only
+  future bookings.
 - An appointment must fit wholly inside one open interval. A closure
   overrides the recurring schedule. Schedule changes do not silently alter
   existing appointments; affected bookings are surfaced for explicit
@@ -52,6 +55,9 @@ originating zone ID. Npgsql requires `DateTimeOffset` values written as
 - A local time that is ambiguous or does not exist due to a daylight-saving
   transition is rejected with a validation response. The application must
   not silently choose an offset or shift the time.
+- Weekly and exception opening boundaries are local `time without time zone`
+  values. They are converted using the configured IANA zone, never the server
+  zone. A date exception with no intervals is an explicit closure.
 - All appointment intervals use the half-open form `[start, end)`. Therefore,
   intervals that meet exactly at an end/start boundary do not overlap.
 
@@ -133,12 +139,20 @@ provider.
 - The implementation must verify support for the exclusion DDL in the
   generated migration and model review. The extension and constraint are
   database provisioning requirements, not application startup actions.
-- Schedule configuration changes concurrent with bookings need an explicit
-  transaction/locking rule in implementation so a booking is validated
-  against a consistent schedule revision.
-- The clinic's actual IANA time-zone ID and default appointment duration
-  remain deployment/business configuration values; neither is hard-coded by
-  this decision.
+- Booking operations acquire `FOR SHARE` on the singleton schedule row inside
+  the existing appointment unit-of-work transaction. Schedule updates acquire
+  `FOR UPDATE` on that same row. The lock remains until commit/rollback and
+  serializes configuration changes against booking validation and persistence.
+- Every appointment creation or rescheduling writer must use the shared
+  `IAppointmentUnitOfWork`, read clinic settings/open intervals through
+  `IClinicScheduleQuery` within that transaction, and persist before it ends.
+  Future write paths must not validate against schedule data outside that
+  transaction and then persist later. Schedule-management writers must use
+  `GetForUpdateAsync` and `UpdateAsync` in the same unit of work so the
+  exclusive lock is held through commit or rollback.
+- The clinic's actual IANA time-zone ID, default duration, start increment,
+  and opening hours remain business configuration values; none is hard-coded
+  by this decision.
 
 ## References
 

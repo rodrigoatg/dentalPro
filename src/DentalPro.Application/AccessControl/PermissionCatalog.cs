@@ -14,6 +14,14 @@ public sealed class PermissionCatalog : IPermissionCatalog
     public const string RolesView = "roles.view";
     public const string RolesPermissionsManage = "roles.permissions.manage";
     public const string PermissionsView = "permissions.view";
+    public const string AppointmentsView = "appointments.view";
+    public const string AppointmentsViewAll = "appointments.view.all";
+    public const string AppointmentsCreate = "appointments.create";
+    public const string AppointmentsUpdate = "appointments.update";
+    public const string AppointmentsCancel = "appointments.cancel";
+    public const string AppointmentsConfirm = "appointments.confirm";
+    public const string AppointmentsComplete = "appointments.complete";
+    public const string AppointmentsScheduleManage = "appointments.schedule.manage";
 
     private static readonly IReadOnlyCollection<PermissionDefinition> Definitions =
         Array.AsReadOnly<PermissionDefinition>(
@@ -26,7 +34,15 @@ public sealed class PermissionCatalog : IPermissionCatalog
         new(UsersRolesManage, "Manage user roles", "Assign or remove roles from users.", "Identity", true),
         new(RolesView, "View roles", "List roles and inspect their permission assignments.", "Identity", true),
         new(RolesPermissionsManage, "Manage role permissions", "Assign or remove permissions on roles.", "Identity", true),
-        new(PermissionsView, "View permissions", "View the backend permission catalog.", "Identity", true)
+        new(PermissionsView, "View permissions", "View the backend permission catalog.", "Identity", true),
+        new(AppointmentsView, "View own agenda", "View the authenticated Dentist's agenda.", "Appointments", false),
+        new(AppointmentsViewAll, "View general agenda", "Expand agenda scope to all Dentists.", "Appointments", false),
+        new(AppointmentsCreate, "Create appointments", "Create appointments.", "Appointments", false),
+        new(AppointmentsUpdate, "Reschedule appointments", "Reschedule appointments.", "Appointments", false),
+        new(AppointmentsCancel, "Cancel appointments", "Cancel appointments.", "Appointments", false),
+        new(AppointmentsConfirm, "Confirm appointments", "Confirm appointments.", "Appointments", false),
+        new(AppointmentsComplete, "Complete appointments", "Mark appointments as completed.", "Appointments", false),
+        new(AppointmentsScheduleManage, "Manage clinic schedule", "Configure clinic hours and exceptions.", "Appointments", false)
     ]);
 
     public IReadOnlyCollection<PermissionDefinition> GetAll() => Definitions;

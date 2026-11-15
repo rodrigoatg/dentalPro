@@ -39,6 +39,7 @@ public sealed class PostgreSqlAppointmentTests
         Assert.Equal(dentistId, loaded.DentistId);
         Assert.Equal(Start, loaded.StartDateTime);
         Assert.Equal(Start.AddMinutes(30), loaded.EndDateTime);
+        Assert.Equal(30, loaded.DurationMinutes);
         Assert.Equal(AppointmentStatus.Scheduled, loaded.Status);
         Assert.Equal("Initial notes", loaded.Notes);
         Assert.Null(loaded.RescheduledFromAppointmentId);

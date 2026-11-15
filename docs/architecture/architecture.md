@@ -354,9 +354,10 @@ These capabilities are outside the initial MVP.
 
 ## 17. Scheduling Module Boundary
 
-The `Appointment` Domain type already exists, but the scheduling use cases,
-EF Core persistence, migration, API and Angular interface are not yet
-implemented. The implementation must preserve the modular dependency rules:
+The `Appointment` Domain type, scheduling Application use cases, appointment
+and clinic-schedule EF Core persistence, and migrations are implemented. API
+endpoints and Angular screens remain unimplemented. The implementation
+preserves the modular dependency rules:
 
 - Domain owns appointment invariants and state transitions and does not
   reference Identity, EF Core or PostgreSQL.
@@ -365,6 +366,17 @@ implemented. The implementation must preserve the modular dependency rules:
 - Infrastructure maps appointment persistence rows, validates Patient and
   Identity-backed Dentist state, stores clinic schedule configuration, and
   implements PostgreSQL-specific overlap constraints.
+- The clinic schedule is a singleton aggregate with IANA time zone, duration
+  default, start increment, weekly local-time intervals, and date exceptions.
+  Local boundaries use `time without time zone`; appointment instants use UTC.
+- Appointment effective duration is persisted separately and must match the
+  UTC start/end difference. Its migration backfills existing rows without
+  moving appointments and fails if a historic interval is not an exact whole
+  number of minutes.
+- Booking reads hold a shared row lock on the schedule singleton through the
+  shared unit-of-work commit. Schedule changes acquire an exclusive row lock
+  in that same unit of work, so concurrent configuration updates cannot alter
+  the hours used by an in-flight booking.
 - API exposes explicit contracts, requires the code-defined permission for
   each operation, and supplies the authenticated actor ID to Application.
 - Angular may hide controls based on effective permissions but is never an

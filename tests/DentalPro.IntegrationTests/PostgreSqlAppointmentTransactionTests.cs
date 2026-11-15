@@ -381,6 +381,7 @@ public sealed class PostgreSqlAppointmentTransactionTests
         DentistId = appointment.DentistId,
         StartDateTime = appointment.StartDateTime,
         EndDateTime = appointment.EndDateTime,
+        DurationMinutes = appointment.DurationMinutes,
         Status = appointment.Status,
         Notes = appointment.Notes,
         RescheduledFromAppointmentId = appointment.RescheduledFromAppointmentId,

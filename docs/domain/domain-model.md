@@ -84,11 +84,9 @@ Future relationship:
 
 Represents a scheduled appointment between a patient and a dentist.
 
-Implementation status: `DentalPro.Domain.Appointments.Appointment` already
-exists with the core identifiers, interval, status and basic transition
-methods. The rescheduling reference and the rules below describe the approved
-target behavior. There is currently no appointment Application use case,
-Infrastructure mapping/repository, migration, API endpoint or Angular screen.
+Implementation status: `DentalPro.Domain.Appointments.Appointment` and its
+Application use cases and Infrastructure persistence are implemented. API
+endpoints and Angular screens remain outside the current implementation stage.
 
 Attributes:
 
@@ -97,6 +95,7 @@ Attributes:
 - DentistId
 - StartDateTime
 - EndDateTime
+- DurationMinutes (effective duration in whole minutes)
 - Status
 - Notes
 - RescheduledFromAppointmentId (optional; references the immediately previous appointment in a rescheduling chain)
@@ -125,6 +124,9 @@ Business rules:
 - An appointment must belong to a patient.
 - An appointment must have a dentist.
 - StartDateTime must be before EndDateTime.
+- DurationMinutes is positive and `EndDateTime = StartDateTime + DurationMinutes`.
+- The effective duration is persisted per appointment; later changes to the
+  clinic default do not alter existing appointments.
 - A dentist cannot have overlapping active appointments.
 - A patient cannot have overlapping active appointments.
 - An appointment must fall within the configured clinic working hours.
@@ -137,20 +139,27 @@ Business rules:
 - Marking Completed preserves the historical appointment interval; it cannot be replaced by another blocking appointment for the same patient or dentist.
 - Appointment creation, rescheduling, cancellation, confirmation and completion must be auditable. Audit data identifies the actor, UTC timestamp, action and affected appointment; rescheduling also identifies the replacement relationship.
 
-### Clinic schedule configuration concept
+### Clinic schedule configuration
 
-Clinic scheduling configuration is a separate operational concept; it is not
-currently implemented as a persisted entity. The initial conceptual model is:
+Clinic scheduling configuration is a separate operational aggregate, persisted
+by Infrastructure as one clinic-wide configuration. Application exposes
+configuration use cases and the schedule query; HTTP administration endpoints
+are not part of this stage. There are no implicit settings or seeded opening
+hours. Until an Administrator configures the clinic, schedule-dependent
+availability, creation and rescheduling fail with a not-configured error.
 
 - One clinic time zone identified by an IANA time-zone ID. No specific zone is
   assumed by the product documentation; configuration must provide it before
   scheduling is enabled.
-- A positive, clinic-wide default appointment duration in minutes. Each
-  appointment stores its resolved start and end instants, so later duration
-  changes do not rewrite existing appointments. Creation and reprogramming
-  use this configured duration; per-appointment overrides and appointment
-  types are outside the initial scope. Dentist-specific schedules are also
-  outside the initial scope.
+- A positive clinic-wide default duration and a positive start increment, both
+  in minutes. The increment is independent and is only metadata for future UI
+  suggestions; Application returns continuous opening intervals and does not
+  generate discrete slots. A booking may use any positive effective duration,
+  including values that are not multiples of the increment. Creation uses the
+  configured default when no duration is supplied; rescheduling preserves the
+  previous duration unless a new one is supplied. Each appointment persists
+  its effective duration, so changes to the default do not rewrite existing
+  appointments. Dentist-specific schedules remain outside the initial scope.
 - A recurring weekly schedule containing one or more local-time opening
   intervals per day. Each interval has a start before its end; intervals on
   the same day do not overlap.
@@ -158,6 +167,9 @@ currently implemented as a persisted entity. The initial conceptual model is:
   intervals. There is at most one effective exception per local date.
   Holidays are entered as date exceptions; no external holiday integration
   is introduced.
+- Weekly intervals and exception intervals must be within one local calendar
+  day, start before end, and not overlap. An exception with no intervals is
+  an explicit closure.
 - A booking interval must fit wholly inside one opening interval. A closure
   overrides the weekly schedule. Changing clinic hours does not silently move
   or delete existing appointments; affected bookings must be reviewed and
@@ -165,11 +177,23 @@ currently implemented as a persisted entity. The initial conceptual model is:
 
 For persistence, recurring times are local wall-clock values associated with
 the configured clinic zone, not instants. Date exceptions use a calendar date.
-Appointment start/end values are UTC instants. The zone identifier is stored
-separately because PostgreSQL `timestamp with time zone` stores an instant,
-not the originating time-zone ID. Local times that are ambiguous or do not
-exist during a daylight-saving transition must be rejected or resolved by an
-explicit documented rule; they must never be silently shifted.
+Appointment start/end values are UTC instants, and the effective duration is
+stored in minutes and constrained to match the interval. The zone identifier
+is stored separately because PostgreSQL `timestamp with time zone` stores an
+instant, not the originating time-zone ID. Application interprets explicit
+offset input as a clinic-local wall time, verifies the offset against the
+configured IANA zone, and rejects ambiguous or nonexistent local times.
+Infrastructure converts recurring and exception boundaries with that same
+zone and rejects ambiguous or nonexistent boundaries; it never uses the host
+or browser local zone.
+
+Persistence uses `ClinicSchedules` (one singleton row),
+`ClinicWeeklyIntervals`, `ClinicScheduleExceptions`, and
+`ClinicScheduleExceptionIntervals`. Schedule changes and booking operations
+use the existing shared appointment unit of work. A booking takes a PostgreSQL
+`FOR SHARE` lock on the singleton schedule row; configuration changes take
+`FOR UPDATE`. This keeps the configuration stable through booking commit.
+Changes to hours do not move or delete existing appointments.
 
 ### MedicalRecord
 
@@ -904,12 +928,10 @@ This is the initial assignment. Other non-protected assignments may be
 configured for roles as the implemented API grows. Administrator receives
 no clinical permissions by default.
 
-### Approved scheduling permission plan (Stage 0; not yet active)
+### Scheduling permissions
 
-The following codes are approved for the scheduling module, but are not part
-of the current backend catalog until their corresponding endpoints and
-schedule-configuration capability are implemented. The backend catalog and
-bootstrap assignments must be updated together with those endpoints.
+The following codes are present in the backend catalog and seeded additively
+by the security bootstrap. HTTP endpoints remain pending.
 
 | Code | Meaning | Initial assignment |
 | --- | --- | --- |
@@ -918,8 +940,8 @@ bootstrap assignments must be updated together with those endpoints.
 | `appointments.create` | Create an appointment for an existing active Patient and active Dentist | Administrator, Receptionist |
 | `appointments.update` | Reschedule an appointment by retaining the prior record and creating its replacement | Administrator, Receptionist |
 | `appointments.cancel` | Cancel an appointment while retaining its record | Administrator, Receptionist |
-| `appointments.confirm` | Confirm an appointment assigned to the authenticated Dentist | Dentist |
-| `appointments.complete` | Mark an appointment assigned to the authenticated Dentist as attended | Dentist |
+| `appointments.confirm` | Confirm an appointment within the caller's authorized agenda scope | Administrator, Receptionist, Dentist |
+| `appointments.complete` | Mark an appointment within the caller's authorized agenda scope as attended | Administrator, Receptionist, Dentist |
 | `appointments.schedule.manage` | Configure clinic opening hours, appointment duration and date exceptions | Administrator |
 
 `appointments.view.all` expands data scope; it does not grant create, update,
@@ -928,9 +950,9 @@ operation still requires its own permission. Administrator's agenda grants
 are explicit initial role-permission assignments, not an implicit effect of
 the Administrator role, and they do not make clinical permissions
 Administrator-protected. Receptionist can administer the general agenda but
-does not configure clinic hours. Dentist's confirm and complete operations
-must additionally verify in the backend that the appointment's DentistId is
-the authenticated user's ID. Users with multiple roles receive the union of
+does not configure clinic hours. Without `appointments.view.all`, confirm and
+complete operations must verify that the appointment's DentistId is the
+authenticated user's ID. Users with multiple roles receive the union of
 the explicitly assigned permissions, as elsewhere in RBAC.
 
 

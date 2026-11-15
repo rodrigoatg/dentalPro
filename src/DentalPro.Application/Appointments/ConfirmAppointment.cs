@@ -15,7 +15,9 @@ public sealed class ConfirmAppointment(
             AppointmentScopeResolver.EnsureActor(actorId);
             var appointment = await repository.GetByIdForUpdateAsync(appointmentId, ct)
                 ?? throw new AppointmentNotFoundException(appointmentId);
-            await new AppointmentScopeResolver(permissions).EnsureOwnsAsync(actorId, appointment, true, ct);
+            var scope = new AppointmentScopeResolver(permissions);
+            await scope.EnsurePermissionAsync(actorId, AppointmentPermissionCodes.Confirm, ct);
+            await scope.EnsureCanManageDentistAsync(actorId, appointment.DentistId, ct);
             AppointmentStateChanges.Change(appointment, appointment.Confirm);
             await repository.UpdateAsync(appointment, ct);
             await auditWriter.AddAsync(new AppointmentAuditEntry(

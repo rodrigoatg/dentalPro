@@ -1,0 +1,91 @@
+<section class="agenda-page">
+  <header class="page-heading">
+    <div><span class="eyebrow">GESTIÓN DE CLÍNICA</span><h1>Agenda</h1><p>Turnos por semana y profesional.</p></div>
+    <div class="heading-actions">
+      @if (canScheduleManage()) { <button class="button button-secondary" type="button" (click)="openScheduleEditor()">Configurar horarios</button> }
+      @if (canCreate()) { <button class="button button-primary" type="button" (click)="openCreate()">＋ Nuevo turno</button> }
+    </div>
+  </header>
+
+  @if (scheduleError()) { <div class="notice notice-warning" role="status">{{ scheduleError() }} @if (canScheduleManage()) { <button type="button" (click)="openScheduleEditor()">Configurar horarios</button> }</div> }
+  @if (error()) { <div class="notice notice-error" role="alert">{{ error() }}<button type="button" (click)="loadReferenceData()">Reintentar</button></div> }
+  @if (message()) { <div class="notice notice-success" role="status">{{ message() }}<button type="button" (click)="message.set('')">Cerrar</button></div> }
+
+  <section class="calendar-panel" aria-label="Agenda semanal">
+    <div class="calendar-toolbar">
+      <div><h2>{{ weekLabel() }}</h2><span>{{ settings()?.timeZoneId ?? 'Zona UTC hasta configurar horarios' }}</span></div>
+      <div class="week-controls"><button type="button" aria-label="Día anterior" (click)="shiftDay(-1)">‹</button><button class="today-button" type="button" (click)="goToday()">Hoy</button><button type="button" aria-label="Día siguiente" (click)="shiftDay(1)">›</button><span class="control-divider"></span><button type="button" aria-label="Semana anterior" (click)="shiftWeek(-1)">«</button><button type="button" aria-label="Semana siguiente" (click)="shiftWeek(1)">»</button><button type="button" aria-label="Actualizar agenda" (click)="loadAppointments()">↻</button></div>
+    </div>
+    @if (loading()) { <div class="loading">Cargando agenda…</div> }
+    <div class="week-grid">
+      @for (day of weekDays(); track day.date) {
+        <section class="day-column" [class.focused-day]="focusedDate() === day.date">
+          <header class="day-heading"><span>{{ day.label }}</span><strong>{{ day.appointments.length }}</strong></header>
+          @if (day.appointments.length === 0) { <p class="day-empty">Sin turnos</p> }
+          @for (appointment of day.appointments; track appointment.appointmentId) {
+            <article class="appointment-card" [class]="'appointment-card ' + statusClass(appointment.status)">
+              <div class="appointment-time">{{ timeLabel(appointment.startDateTime) }}–{{ timeLabel(appointment.endDateTime) }} · {{ appointment.durationMinutes }} min</div>
+              <strong class="patient-name">{{ appointment.patientLastName }}, {{ appointment.patientFirstName }}</strong>
+              <span class="dentist-name">Dr. {{ appointment.dentistFirstName }} {{ appointment.dentistLastName }}</span>
+              @if (appointment.notes) { <span class="appointment-notes">{{ appointment.notes }}</span> }
+              <span class="status-badge">{{ statusLabel(appointment.status) }}</span>
+              @if (canReschedule(appointment) || canCancel(appointment) || canConfirm(appointment) || canComplete(appointment)) {
+                <div class="card-actions">
+                  @if (canReschedule(appointment)) { <button type="button" (click)="openReschedule(appointment)">Reprogramar</button> }
+                  @if (canConfirm(appointment)) { <button type="button" (click)="confirm(appointment)" [disabled]="busy()">Confirmar</button> }
+                  @if (canComplete(appointment)) { <button type="button" (click)="complete(appointment)" [disabled]="busy()">Completar</button> }
+                  @if (canCancel(appointment)) { <button class="danger-action" type="button" (click)="cancel(appointment)" [disabled]="busy()">Cancelar</button> }
+                </div>
+              }
+            </article>
+          }
+        </section>
+      }
+    </div>
+  </section>
+</section>
+
+@if (formVisible()) {
+  <div class="modal-backdrop" (click)="closeForm()">
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="appointment-title" (click)="$event.stopPropagation()">
+      <header class="modal-header"><div><span class="eyebrow">AGENDA</span><h2 id="appointment-title">{{ editingAppointment() ? 'Reprogramar turno' : 'Nuevo turno' }}</h2></div><button type="button" class="close" aria-label="Cerrar" (click)="closeForm()">×</button></header>
+      <div class="form-grid">
+        @if (!editingAppointment()) {
+          <label>Paciente<select [ngModel]="selectedPatientId()" (ngModelChange)="selectedPatientId.set($event); refreshAvailability()" name="patientId"><option value="">Seleccionar paciente</option>@for (patient of patients(); track patient.id) { <option [value]="patient.id">{{ patient.lastName }}, {{ patient.firstName }}</option> }</select></label>
+        } @else { <div class="read-only"><span>Paciente</span><strong>{{ editingAppointment()?.patientLastName }}, {{ editingAppointment()?.patientFirstName }}</strong></div> }
+        <label>Odontólogo<select [ngModel]="selectedDentistId()" (ngModelChange)="selectedDentistId.set($event); refreshAvailability()" name="dentistId"><option value="">Seleccionar odontólogo</option>@for (dentist of dentists(); track dentist.id) { <option [value]="dentist.id">{{ dentist.lastName }}, {{ dentist.firstName }}</option> }</select></label>
+        <label>Fecha<input type="date" [ngModel]="selectedDate()" (ngModelChange)="selectedDate.set($event); refreshAvailability()" name="appointmentDate" /></label>
+        <label>Duración personalizada (minutos)<input type="number" min="1" step="1" [ngModel]="duration()" (ngModelChange)="duration.set($event); updateSlots()" name="duration" placeholder="Predeterminada" /></label>
+        <label class="wide">Inicio disponible<select [ngModel]="selectedStart()" (ngModelChange)="selectedStart.set($event)" name="start"><option value="">Seleccionar horario</option>@for (slot of slotOptions(); track slot.value) { <option [value]="slot.value">{{ slot.label }}</option> }</select><small>La duración predeterminada y los horarios provienen de la configuración de la clínica.</small></label>
+        <label class="wide">Notas (opcional)<textarea rows="3" [ngModel]="notes()" (ngModelChange)="notes.set($event)" name="notes"></textarea></label>
+      </div>
+      @if (!slotOptions().length && selectedDentistId()) { <p class="empty-slots">No hay inicios disponibles para este profesional y rango.</p> }
+      @if (error()) { <div class="form-error" role="alert">{{ error() }}</div> }
+      <footer class="modal-actions"><button class="button button-secondary" type="button" (click)="closeForm()">Volver</button><button class="button button-primary" type="button" [disabled]="busy() || !selectedStart() || (!editingAppointment() && !selectedPatientId())" (click)="saveAppointment()">{{ busy() ? 'Guardando…' : editingAppointment() ? 'Reprogramar' : 'Crear turno' }}</button></footer>
+    </section>
+  </div>
+}
+
+@if (scheduleVisible() && canScheduleManage()) {
+  <div class="modal-backdrop" (click)="closeScheduleEditor()">
+    <section class="modal schedule-modal" role="dialog" aria-modal="true" aria-labelledby="schedule-title" (click)="$event.stopPropagation()">
+      <header class="modal-header"><div><span class="eyebrow">ADMINISTRACIÓN</span><h2 id="schedule-title">Horarios de la clínica</h2><p>La configuración no establece horarios por defecto.</p></div><button type="button" class="close" aria-label="Cerrar" (click)="closeScheduleEditor()">×</button></header>
+      <div class="form-grid">
+        <label>Zona horaria IANA<input [ngModel]="timeZoneInput()" (ngModelChange)="timeZoneInput.set($event)" name="timeZone" placeholder="Ej. America/Argentina/Buenos_Aires" /></label>
+        <label>Duración predeterminada (minutos)<input type="number" min="1" [ngModel]="defaultDurationInput()" (ngModelChange)="defaultDurationInput.set($event)" name="defaultDuration" /></label>
+        <label>Incremento de inicio (minutos)<input type="number" min="1" [ngModel]="incrementInput()" (ngModelChange)="incrementInput.set($event)" name="increment" /></label>
+      </div>
+      <div class="schedule-section-heading"><div><h3>Horario semanal</h3><p>Agregá una o varias franjas por día. Los días sin franjas quedan cerrados.</p></div><button type="button" class="text-button" (click)="addWeeklyInterval()">＋ Agregar franja</button></div>
+      @for (interval of weeklyIntervals(); track $index; let index = $index) {
+        <div class="interval-row"><select [ngModel]="interval.dayOfWeek" (ngModelChange)="updateWeeklyInterval(index, 'dayOfWeek', $event)" [name]="'day' + index"><option value="">Día</option><option value="Monday">Lunes</option><option value="Tuesday">Martes</option><option value="Wednesday">Miércoles</option><option value="Thursday">Jueves</option><option value="Friday">Viernes</option><option value="Saturday">Sábado</option><option value="Sunday">Domingo</option></select><input type="time" [ngModel]="interval.start" (ngModelChange)="updateWeeklyInterval(index, 'start', $event)" [name]="'weeklyStart' + index" /><span>a</span><input type="time" [ngModel]="interval.end" (ngModelChange)="updateWeeklyInterval(index, 'end', $event)" [name]="'weeklyEnd' + index" /><button type="button" class="remove-button" (click)="removeWeeklyInterval(index)" aria-label="Quitar franja">×</button></div>
+      }
+      <div class="schedule-section-heading exception-heading"><div><h3>Excepciones de fechas</h3><p>Una fecha sin franjas representa un cierre completo.</p></div></div>
+      <div class="exception-editor"><label>Fecha<input type="date" [ngModel]="selectedExceptionDate()" (ngModelChange)="selectedExceptionDate.set($event)" name="exceptionDate" /></label><input aria-label="Desde" type="time" [ngModel]="exceptionStart()" (ngModelChange)="exceptionStart.set($event)" name="exceptionStart" /><span>a</span><input aria-label="Hasta" type="time" [ngModel]="exceptionEnd()" (ngModelChange)="exceptionEnd.set($event)" name="exceptionEnd" /><button type="button" class="text-button" (click)="addExceptionInterval()">Agregar franja</button><button type="button" class="text-button" (click)="exceptionIntervals.set([])">Marcar cierre</button></div>
+      @if (exceptionIntervals().length) { <div class="exception-chips">@for (interval of exceptionIntervals(); track $index) { <span>{{ interval.start }}–{{ interval.end }} <button type="button" (click)="removeExceptionInterval($index)" aria-label="Quitar intervalo">×</button></span> }</div> }
+      <div class="exceptions-list">@for (exception of schedule()?.dateExceptions ?? []; track exception.date) { <div><span><strong>{{ exception.date }}</strong> · {{ exceptionLabel(exception) }}</span><button type="button" (click)="selectException(exception)">Editar</button><button type="button" (click)="removeException(exception.date)">Eliminar</button></div> }</div>
+      @if (scheduleError()) { <div class="form-error" role="alert">{{ scheduleError() }}</div> }
+      @if (scheduleMessage()) { <div class="form-success" role="status">{{ scheduleMessage() }}</div> }
+      <footer class="modal-actions"><button class="button button-secondary" type="button" (click)="closeScheduleEditor()">Cerrar</button><button class="button button-secondary" type="button" [disabled]="busy() || !selectedExceptionDate()" (click)="saveException()">Guardar excepción</button><button class="button button-primary" type="button" [disabled]="busy()" (click)="saveSchedule()">Guardar horario semanal</button></footer>
+    </section>
+  </div>
+}

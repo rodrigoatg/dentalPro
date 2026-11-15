@@ -1,7 +1,7 @@
 namespace DentalPro.Application.Appointments;
 
 /// <summary>
-/// Commits staged appointment and audit writes together only if the callback succeeds.
+/// Commits staged scheduling writes (appointments, clinic configuration and audit) together only if the callback succeeds.
 /// PostgreSQL exclusion constraints may be deferred until the transaction commit.
 /// </summary>
 public interface IAppointmentUnitOfWork

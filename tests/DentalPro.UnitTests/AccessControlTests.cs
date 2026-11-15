@@ -118,7 +118,9 @@ public sealed class PermissionCatalogTests
             "users.roles.manage",
             "roles.view",
             "roles.permissions.manage",
-            "permissions.view"
+            "permissions.view",
+            "appointments.view", "appointments.view.all", "appointments.create", "appointments.update",
+            "appointments.cancel", "appointments.confirm", "appointments.complete", "appointments.schedule.manage"
         };
         var definitions = _catalog.GetAll();
 

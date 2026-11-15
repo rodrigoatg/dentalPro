@@ -122,9 +122,10 @@ quitar roles y gestionar permisos de roles. Los roles iniciales serán
 Administrator, Dentist y Receptionist. Los permisos administrativos
 protegidos no podrán quitarse de Administrator mediante la API. El sistema
 deberá impedir que el último Administrator activo pierda ese rol o sea
-desactivado. La configuración de horarios de atención se gestionará como
-parte de la agenda y fuera del catálogo RBAC hasta que exista el endpoint
-correspondiente.
+desactivado. La configuración de horarios de atención se gestiona como parte
+de la agenda. Los casos de uso y la persistencia verifican el permiso efectivo
+`appointments.schedule.manage`; su endpoint HTTP queda pendiente y la
+configuración no se expone por HTTP en esta etapa.
 
 ### FR-007 [MVP] — Auditoría de operaciones relevantes
 
@@ -260,9 +261,10 @@ proteger la regla también ante solicitudes concurrentes.
 ### Decisiones aprobadas de la agenda (Etapa 0)
 
 - Administrator y Receptionist pueden consultar y administrar la agenda
-  general. Dentist solo consulta su propia agenda y puede confirmar y marcar
-  como atendidos sus propios turnos. Dentist no crea, reprograma ni cancela
-  turnos en la primera versión.
+  general, incluyendo confirmar y completar turnos. Dentist solo consulta su
+  propia agenda y puede confirmar y completar sus propios turnos. Dentist no
+  crea, reprograma ni cancela turnos en la primera versión. Cada acción
+  requiere su permiso RBAC explícito además del alcance de agenda.
 - Se reutilizan los estados `Scheduled`, `Confirmed`, `Completed`,
   `Cancelled` y `Rescheduled`. Las transiciones permitidas son:
   `Scheduled` -> `Confirmed`, `Completed`, `Cancelled` o `Rescheduled`; y
@@ -276,6 +278,11 @@ proteger la regla también ante solicitudes concurrentes.
   franjas semanales, duración predeterminada y excepciones por fecha para
   horarios especiales, feriados y cierres. No hay horarios individuales por
   odontólogo en el alcance inicial.
+- Cada turno persiste su duración efectiva en minutos. La duración
+  predeterminada se usa cuando no se indica una duración personalizada; una
+  reprogramación conserva la anterior cuando no recibe una nueva. El
+  incremento de inicio es independiente y se reserva para sugerencias de la
+  interfaz; no limita las duraciones ni genera slots en Application.
 - La configuración requiere un identificador de zona horaria IANA. No se
   fija una zona en los requisitos del producto; debe configurarse antes de
   habilitar la agenda. Cambiar horarios no altera turnos existentes; los
@@ -292,9 +299,9 @@ proteger la regla también ante solicitudes concurrentes.
 - La clínica debe proporcionar su identificador de zona horaria IANA y el
   valor inicial de duración predeterminada. La agenda no se habilitará con
   valores implícitos del servidor o del navegador.
-- Debe definirse el incremento de inicio de los turnos disponibles. La
-  duración predeterminada fija la longitud del turno, pero por sí sola no
-  determina cada hora de inicio ofrecida.
+- El valor inicial de duración predeterminada y de incremento de inicio debe
+  configurarse con datos reales de la clínica; no hay valores por defecto.
+  La agenda no se habilita mientras la configuración esté ausente.
 - Debe definirse si se permiten altas o reprogramaciones en el pasado y qué
   hacer con turnos futuros cuando se desactiva un paciente o se deshabilita un
   odontólogo o su rol Dentist.

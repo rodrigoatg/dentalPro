@@ -23,7 +23,17 @@ public sealed class AppointmentTests
         Assert.Equal(notes, appointment.Notes);
         Assert.Null(appointment.RescheduledFromAppointmentId);
         Assert.Equal(AppointmentStatus.Scheduled, appointment.Status);
+        Assert.Equal(30, appointment.DurationMinutes);
         Assert.Equal(appointment.CreatedAt, appointment.UpdatedAt);
+    }
+
+    [Fact]
+    public void Create_WithCustomDurationCalculatesEndAndDoesNotRequireIncrementMultiple()
+    {
+        var appointment = Appointment.Create(Guid.NewGuid(), Guid.NewGuid(), Start, 35);
+
+        Assert.Equal(Start.AddMinutes(35), appointment.EndDateTime);
+        Assert.Equal(35, appointment.DurationMinutes);
     }
 
     [Fact]

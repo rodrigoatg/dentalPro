@@ -23,6 +23,7 @@ public sealed class SecurityAdministrationTests
     {
         await using var fixture = await SecurityFixture.CreateAsync();
         await fixture.BootstrapAsync();
+        await fixture.BootstrapAsync();
 
         await using var scope = fixture.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<DentalProDbContext>();
@@ -33,8 +34,8 @@ public sealed class SecurityAdministrationTests
             .GetUsersInRoleAsync(SystemRoles.Administrator);
 
         Assert.Equal(3, roles.Count);
-        Assert.Equal(9, permissions.Count);
-        Assert.Equal(13, assignments.Count);
+        Assert.Equal(17, permissions.Count);
+        Assert.Equal(31, assignments.Count);
         Assert.Single(administrator);
         Assert.True(administrator[0].IsActive);
 
@@ -60,6 +61,68 @@ public sealed class SecurityAdministrationTests
         Assert.DoesNotContain(assignments.Where(assignment => assignment.RoleId != roleIds[SystemRoles.Administrator]),
             assignment => protectedCodes.Contains(
                 permissions.Single(permission => permission.Id == assignment.PermissionId).Code));
+
+        var appointmentMatrix = new Dictionary<string, string[]>(StringComparer.Ordinal)
+        {
+            [SystemRoles.Administrator] = [PermissionCatalog.AppointmentsView, PermissionCatalog.AppointmentsViewAll,
+                PermissionCatalog.AppointmentsCreate, PermissionCatalog.AppointmentsUpdate, PermissionCatalog.AppointmentsCancel,
+                PermissionCatalog.AppointmentsConfirm, PermissionCatalog.AppointmentsComplete, PermissionCatalog.AppointmentsScheduleManage],
+            [SystemRoles.Receptionist] = [PermissionCatalog.AppointmentsView, PermissionCatalog.AppointmentsViewAll,
+                PermissionCatalog.AppointmentsCreate, PermissionCatalog.AppointmentsUpdate, PermissionCatalog.AppointmentsCancel,
+                PermissionCatalog.AppointmentsConfirm, PermissionCatalog.AppointmentsComplete],
+            [SystemRoles.Dentist] = [PermissionCatalog.AppointmentsView, PermissionCatalog.AppointmentsConfirm,
+                PermissionCatalog.AppointmentsComplete]
+        };
+        foreach (var (roleName, codes) in appointmentMatrix)
+        {
+            var assignedCodes = assignments.Where(item => item.RoleId == roleIds[roleName])
+                .Select(item => permissions.Single(permission => permission.Id == item.PermissionId).Code).ToHashSet();
+            Assert.All(codes, code => Assert.Contains(code, assignedCodes));
+            var forbidden = roleName switch
+            {
+                var name when name == SystemRoles.Administrator => Array.Empty<string>(),
+                var name when name == SystemRoles.Receptionist => [PermissionCatalog.AppointmentsScheduleManage],
+                _ => [PermissionCatalog.AppointmentsViewAll, PermissionCatalog.AppointmentsCreate,
+                    PermissionCatalog.AppointmentsUpdate, PermissionCatalog.AppointmentsCancel,
+                    PermissionCatalog.AppointmentsScheduleManage]
+            };
+            Assert.DoesNotContain(assignedCodes, forbidden.Contains);
+        }
+    }
+
+    [Fact]
+    public async Task Bootstrap_IsAdditiveForAppointmentAssignmentsAndPreservesAdministratorState()
+    {
+        await using var fixture = await SecurityFixture.CreateAsync();
+        await fixture.BootstrapAsync();
+        Guid administratorId;
+        await using (var scope = fixture.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<DentalProDbContext>();
+            var dentist = await db.Roles.SingleAsync(role => role.Name == SystemRoles.Dentist);
+            var create = await db.Permissions.SingleAsync(permission => permission.Code == PermissionCatalog.AppointmentsCreate);
+            db.RolePermissions.Add(RolePermission.Create(dentist.Id, create.Id));
+            var administrator = (await scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>()
+                .GetUsersInRoleAsync(SystemRoles.Administrator)).Single();
+            administratorId = administrator.Id;
+            administrator.IsActive = false;
+            await db.SaveChangesAsync();
+        }
+
+        await fixture.BootstrapAsync();
+
+        await using var verifyScope = fixture.Services.CreateAsyncScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<DentalProDbContext>();
+        var updatedAdmin = await verifyDb.Users.SingleAsync(user => user.Id == administratorId);
+        Assert.False(updatedAdmin.IsActive);
+        var users = verifyScope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        Assert.True(await users.CheckPasswordAsync(updatedAdmin, StrongPassword));
+        var dentistRoleId = await verifyDb.Roles.Where(role => role.Name == SystemRoles.Dentist)
+            .Select(role => role.Id).SingleAsync();
+        var createId = await verifyDb.Permissions.Where(permission => permission.Code == PermissionCatalog.AppointmentsCreate)
+            .Select(permission => permission.Id).SingleAsync();
+        Assert.Contains(await verifyDb.RolePermissions.AsNoTracking().ToListAsync(),
+            assignment => assignment.RoleId == dentistRoleId && assignment.PermissionId == createId);
     }
 
     [Fact]

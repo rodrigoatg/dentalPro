@@ -20,15 +20,18 @@ public sealed class CreateAppointment(
         AppointmentScopeResolver.EnsureActor(actorId);
         return unitOfWork.ExecuteAsync(async ct =>
         {
-            await new AppointmentScopeResolver(permissions)
-                .EnsureCanManageDentistAsync(actorId, command.DentistId, ct);
+            var scope = new AppointmentScopeResolver(permissions);
+            await scope.EnsurePermissionAsync(actorId, AppointmentPermissionCodes.Create, ct);
+            await scope.EnsureCanManageDentistAsync(actorId, command.DentistId, ct);
             await GetAppointmentAvailability.ValidatePatientAsync(command.PatientId, participants, ct);
             await GetAppointmentAvailability.ValidateDentistAsync(command.DentistId, participants, ct);
 
-            var start = command.StartDateTime.ToUniversalTime();
-            var end = command.EndDateTime.ToUniversalTime();
+            var settings = await clinicSchedule.GetSettingsAsync(ct);
+            var start = ClinicScheduleTime.ResolveLocalStart(command.StartDateTime, settings);
+            var duration = command.DurationMinutes ?? settings.DefaultAppointmentDurationMinutes;
+            var end = ClinicScheduleTime.CalculateEnd(start, duration);
             var appointment = Appointment.Create(
-                command.PatientId, command.DentistId, start, end, command.Notes);
+                command.PatientId, command.DentistId, start, duration, command.Notes);
             await EnsureWithinClinicHoursAsync(clinicSchedule, start, end, ct);
             await EnsureAvailableAsync(repository, command.PatientId, command.DentistId, start, end, null, ct);
 
@@ -77,5 +80,19 @@ public sealed record CreateAppointmentCommand(
     Guid PatientId,
     Guid DentistId,
     DateTimeOffset StartDateTime,
-    DateTimeOffset EndDateTime,
-    string? Notes = null);
+    int? DurationMinutes = null,
+    string? Notes = null)
+{
+    public CreateAppointmentCommand(Guid patientId, Guid dentistId, DateTimeOffset startDateTime,
+        DateTimeOffset endDateTime, string? notes = null)
+        : this(patientId, dentistId, startDateTime,
+            ExactMinutesCompat(startDateTime, endDateTime), notes) { }
+
+    internal static int ExactMinutesCompat(DateTimeOffset start, DateTimeOffset end)
+    {
+        var minutes = (end.ToUniversalTime() - start.ToUniversalTime()).TotalMinutes;
+        if (minutes <= 0 || minutes != Math.Truncate(minutes) || minutes > int.MaxValue)
+            throw new ArgumentException("Appointment interval must have an exact positive whole-minute duration.", nameof(end));
+        return (int)minutes;
+    }
+}

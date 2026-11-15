@@ -22,14 +22,18 @@ public sealed class RescheduleAppointment(
         {
             var original = await repository.GetByIdForUpdateAsync(command.AppointmentId, ct)
                 ?? throw new AppointmentNotFoundException(command.AppointmentId);
-            await new AppointmentScopeResolver(permissions).EnsureOwnsAsync(
-                actorId, original, ownerOnly: false, cancellationToken: ct);
+            var scope = new AppointmentScopeResolver(permissions);
+            await scope.EnsurePermissionAsync(actorId, AppointmentPermissionCodes.Update, ct);
+            await scope.EnsureCanManageDentistAsync(actorId, original.DentistId, ct);
+            await scope.EnsureCanManageDentistAsync(actorId, command.DentistId, ct);
             await GetAppointmentAvailability.ValidatePatientAsync(original.PatientId, participants, ct);
             await GetAppointmentAvailability.ValidateDentistAsync(command.DentistId, participants, ct);
 
-            var start = command.StartDateTime.ToUniversalTime();
-            var end = command.EndDateTime.ToUniversalTime();
-            _ = Appointment.Create(original.PatientId, command.DentistId, start, end, command.Notes);
+            var settings = await clinicSchedule.GetSettingsAsync(ct);
+            var start = ClinicScheduleTime.ResolveLocalStart(command.StartDateTime, settings);
+            var duration = command.DurationMinutes ?? original.DurationMinutes;
+            var end = ClinicScheduleTime.CalculateEnd(start, duration);
+            _ = Appointment.Create(original.PatientId, command.DentistId, start, duration, command.Notes);
             await CreateAppointment.EnsureWithinClinicHoursAsync(clinicSchedule, start, end, ct);
             await CreateAppointment.EnsureAvailableAsync(
                 repository, original.PatientId, command.DentistId, start, end, original.Id, ct);
@@ -37,7 +41,7 @@ public sealed class RescheduleAppointment(
             Appointment replacement;
             try
             {
-                replacement = original.Reschedule(command.DentistId, start, end, command.Notes);
+                replacement = original.Reschedule(command.DentistId, start, duration, command.Notes);
             }
             catch (InvalidOperationException exception)
             {
@@ -61,5 +65,11 @@ public sealed record RescheduleAppointmentCommand(
     Guid AppointmentId,
     Guid DentistId,
     DateTimeOffset StartDateTime,
-    DateTimeOffset EndDateTime,
-    string? Notes = null);
+    int? DurationMinutes = null,
+    string? Notes = null)
+{
+    public RescheduleAppointmentCommand(Guid appointmentId, Guid dentistId, DateTimeOffset startDateTime,
+        DateTimeOffset endDateTime, string? notes = null)
+        : this(appointmentId, dentistId, startDateTime,
+            CreateAppointmentCommand.ExactMinutesCompat(startDateTime, endDateTime), notes) { }
+}
