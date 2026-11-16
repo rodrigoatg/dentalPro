@@ -28,6 +28,7 @@
       <h2>Todos los pacientes</h2>
       <p>Listado general de pacientes y sus historias cl&iacute;nicas</p>
     </div>
+    <label class="patient-search"><span>Buscar pacientes</span><input type="search" aria-label="Buscar pacientes por nombre, apellido o documento" [value]="search()" (input)="setSearch($any($event.target).value)" placeholder="Nombre, apellido o documento" /></label>
     <div class="patient-count">
       <span class="count-dot"></span
       >{{ loading() ? 'Actualizando&hellip;' : patients().length + ' registrados' }}
@@ -37,7 +38,7 @@
     <div class="loading-state">
       <span class="spinner"></span><span>Cargando pacientes&hellip;</span>
     </div>
-  } @else if (patients().length === 0 && !loadError()) {
+  } @else if (patients().length === 0 && !loadError() && !search()) {
     <div class="empty-state">
       <div class="empty-icon"><span>P</span><i>+</i></div>
       <h3>Todav&iacute;a no hay pacientes</h3>
@@ -48,6 +49,8 @@
         </button>
       }
     </div>
+  } @else if (patients().length === 0 && !loadError()) {
+    <div class="empty-state"><h3>Sin resultados</h3><p>No hay pacientes que coincidan con la b&uacute;squeda.</p></div>
   } @else if (patients().length > 0) {
     <div class="table-scroll">
       <table>
@@ -58,6 +61,7 @@
             <th>HISTORIA CL&Iacute;NICA</th>
             <th>CONTACTO</th>
             <th>ESTADO</th>
+            @if (canViewClinicalRecords()) { <th>HISTORIA</th> }
           </tr>
         </thead>
         <tbody>
@@ -68,7 +72,7 @@
                   <span class="avatar">{{ initials(patient) }}</span
                   ><span class="patient-name"
                     ><strong>{{ patient.lastName }}, {{ patient.firstName }}</strong
-                    ><small>Alta {{ formatDate(patient.createdAt.slice(0, 10)) }}</small></span
+                    ><small>Alta {{ formatDate(patient.createdAt.slice(0, 10)) }}</small><a class="patient-detail-link" [routerLink]="['/patients', patient.id]">Abrir ficha del paciente</a></span
                   >
                 </div>
               </td>
@@ -94,6 +98,7 @@
                   ><i></i>{{ patient.isActive ? 'Activo' : 'Inactivo' }}</span
                 >
               </td>
+              @if (canViewClinicalRecords()) { <td><a [routerLink]="['/patients', patient.id, 'medical-record']">Ver historia</a></td> }
             </tr>
           }
         </tbody>
@@ -140,7 +145,7 @@
             @if (
               patientForm.controls.documentType.touched && patientForm.controls.documentType.invalid
             ) {
-              <small class="field-error">Este campo es obligatorio.</small>
+              <small class="field-error">Ingres&aacute; un tipo de documento.</small>
             }
           </label>
           <label class="field"
@@ -154,7 +159,7 @@
               patientForm.controls.documentNumber.touched &&
               patientForm.controls.documentNumber.invalid
             ) {
-              <small class="field-error">Este campo es obligatorio.</small>
+              <small class="field-error">Ingres&aacute; un n&uacute;mero de documento.</small>
             }
           </label>
           <label class="field"
@@ -194,7 +199,7 @@
           <label class="field"
             ><span>Email</span
             ><input formControlName="email" placeholder="correo@ejemplo.com" autocomplete="email"
-          /></label>
+          />@if (patientForm.controls.email.touched && patientForm.controls.email.invalid) { <small class="field-error">Ingres&aacute; un correo v&aacute;lido.</small> }</label>
           <label class="field field-full"
             ><span>Domicilio</span
             ><input

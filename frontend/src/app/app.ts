@@ -35,6 +35,7 @@ export class App {
   private currentSection(): string {
     if (this.router.url.startsWith('/admin')) return 'Administración';
     if (this.router.url.startsWith('/appointments')) return 'Agenda';
+    if (this.router.url.includes('/medical-record')) return 'Historia clínica';
     return this.router.url.startsWith('/patients') ? 'Pacientes' : 'Dashboard';
   }
 

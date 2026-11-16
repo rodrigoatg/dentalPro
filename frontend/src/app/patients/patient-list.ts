@@ -4,10 +4,11 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { PatientsApiService } from '../core/patients/patients-api.service';
 import { CreatedPatient, PatientListItem } from '../core/patients/patient.models';
 import { AuthService } from '../core/auth/auth.service';
+import { RouterLink } from '@angular/router';
 
 @Component({
   selector: 'app-patient-list',
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, RouterLink],
   templateUrl: './patient-list.html',
   styleUrl: './patient-list.css',
 })
@@ -22,17 +23,20 @@ export class PatientList implements OnInit {
   protected readonly saving = signal(false);
   protected readonly submitError = signal('');
   protected readonly successMessage = signal('');
+  protected readonly search = signal('');
+  private loadSequence = 0;
   protected readonly canCreatePatients = () => this.auth.hasPermission('patients.create');
+  protected readonly canViewClinicalRecords = () => this.auth.hasPermission('clinical.records.view');
   private readonly currentDate = new Date();
   protected readonly today = `${this.currentDate.getFullYear()}-${String(this.currentDate.getMonth() + 1).padStart(2, '0')}-${String(this.currentDate.getDate()).padStart(2, '0')}`;
   protected readonly patientForm = this.formBuilder.nonNullable.group({
-    documentType: ['', Validators.required],
-    documentNumber: ['', Validators.required],
+    documentType: ['', [Validators.required, Validators.pattern(/\S/)]],
+    documentNumber: ['', [Validators.required, Validators.pattern(/\S/)]],
     firstName: ['', [Validators.required, Validators.pattern(/\S/)]],
     lastName: ['', [Validators.required, Validators.pattern(/\S/)]],
     dateOfBirth: [''],
     phone: [''],
-    email: [''],
+    email: ['', Validators.email],
     address: [''],
   });
 
@@ -41,18 +45,26 @@ export class PatientList implements OnInit {
   }
 
   protected loadPatients(): void {
+    const requestSequence = ++this.loadSequence;
     this.loading.set(true);
     this.loadError.set('');
-    this.patientsApi.list().subscribe({
+    this.patientsApi.list(this.search()).subscribe({
       next: (patients) => {
+        if (requestSequence !== this.loadSequence) return;
         this.patients.set(patients);
         this.loading.set(false);
       },
       error: (error: HttpErrorResponse) => {
+        if (requestSequence !== this.loadSequence) return;
         this.loadError.set(this.apiErrorMessage(error));
         this.loading.set(false);
       },
     });
+  }
+
+  protected setSearch(value: string): void {
+    this.search.set(value.trim().replace(/\s+/g, ' '));
+    this.loadPatients();
   }
 
   protected openForm(): void {

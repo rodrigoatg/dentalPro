@@ -8,6 +8,23 @@
   gap: 16px;
   margin: 3px 0 23px;
 }
+.patient-search {
+  display: grid;
+  gap: 4px;
+  flex: 1 1 260px;
+  min-width: 220px;
+  max-width: 380px;
+  color: #718498;
+  font-size: 11px;
+}
+.patient-search input {
+  min-height: 38px;
+  padding: 7px 10px;
+  border: 1px solid #d7e0e7;
+  border-radius: 8px;
+  color: #18344d;
+  font: inherit;
+}
 .page-heading h1 {
   margin: 5px 0 4px;
   color: #18344d;
@@ -119,9 +136,20 @@
 }
 .panel-top {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  gap: 12px 18px;
   justify-content: space-between;
   padding: 19px 21px;
+}
+.patient-detail-link {
+  display: inline-block;
+  margin-top: 4px;
+  color: #267b76;
+  font-size: 11px;
+  font-weight: 650;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 .panel-top h2 {
   margin: 0 0 4px;
@@ -552,8 +580,11 @@ td {
     padding: 21px 18px 17px;
   }
   .panel-top {
+    align-items: stretch;
+    flex-direction: column;
     padding: 15px;
   }
+  .patient-search { width: 100%; max-width: none; min-width: 0; }
   th:first-child,
   td:first-child {
     padding-left: 14px;

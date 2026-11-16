@@ -1,0 +1,45 @@
+<main class="record-page">
+  <a class="back-link" routerLink="/patients">&larr; Pacientes</a>
+  <header class="page-heading"><div><span class="eyebrow">HISTORIA CL&Iacute;NICA</span><h1>{{ record() ? record()!.patientLastName + ', ' + record()!.patientFirstName : 'Atenciones del paciente' }}</h1><p>Registro cl&iacute;nico cronol&oacute;gico.</p></div>
+    @if (canCreateEntry()) { <button class="primary" type="button" (click)="formVisible.set(!formVisible())">＋ Registrar atenci&oacute;n</button> }
+  </header>
+  @if (error()) { <div class="notice error" role="alert">{{ error() }} <button type="button" (click)="load()">Reintentar</button></div> }
+  @if (message()) { <div class="notice success" role="status">{{ message() }}</div> }
+  @if (loading()) { <p class="loading">Cargando historia cl&iacute;nica&hellip;</p> }
+  @if (formVisible() && canCreateEntry()) {
+    <form class="entry-form" (ngSubmit)="submit()">
+      <h2>Nueva atenci&oacute;n</h2>
+      @if (appointmentId()) { <p>Asociada al turno seleccionado.</p> }
+      <div class="form-grid">
+        <label>Tipo<select [ngModel]="entryType()" (ngModelChange)="entryType.set($event)" name="type"><option value="Consultation">Consulta</option><option value="Treatment">Tratamiento</option><option value="Observation">Observaci&oacute;n</option><option value="FollowUp">Seguimiento</option><option value="Other">Otro</option></select></label>
+        <label>Fecha y hora<input type="datetime-local" [ngModel]="occurredAt()" (ngModelChange)="occurredAt.set($event)" name="occurredAt" required /></label>
+        <label class="wide">Diagn&oacute;stico o motivo<input [ngModel]="diagnosis()" (ngModelChange)="diagnosis.set($event)" name="diagnosis" maxlength="2000" /></label>
+        <label class="wide">Observaciones cl&iacute;nicas<textarea [ngModel]="notes()" (ngModelChange)="notes.set($event)" name="notes" required maxlength="20000" rows="5"></textarea></label>
+      </div>
+      @if (canCreateTreatment()) {
+        <section class="treatment-editor"><h3>Tratamientos (opcional)</h3>
+          <div class="form-grid"><label>Tipo<select [ngModel]="treatmentType()" (ngModelChange)="treatmentType.set($event)" name="treatmentType"><option value="Restoration">Restauraci&oacute;n</option><option value="Extraction">Extracci&oacute;n</option><option value="RootCanal">Conducto</option><option value="Cleaning">Limpieza</option><option value="Crown">Corona</option><option value="Other">Otro</option></select></label>
+            <label>Estado inicial<select [ngModel]="treatmentStatus" (ngModelChange)="setTreatmentStatus($event)" name="treatmentStatus"><option value="Planned">Planificado</option><option value="InProgress">En curso</option><option value="PartiallyCompleted">Parcialmente realizado</option><option value="Completed">Completado</option><option value="Cancelled">Cancelado</option></select></label>
+            <label class="wide">Descripci&oacute;n<input [(ngModel)]="treatmentDescription" name="treatmentDescription" maxlength="500" /></label></div>
+          <fieldset><legend>Piezas dentales (opcional)</legend><div class="teeth">@for (tooth of toothRows; track tooth) { <label><input type="checkbox" [checked]="selectedTeeth().includes(tooth)" (change)="toggleTooth(tooth)" />{{ tooth }}</label> }</div></fieldset>
+          @if (treatmentStatus === 'PartiallyCompleted') { <fieldset><legend>Piezas ya realizadas</legend><div class="teeth">@for (tooth of selectedTeeth(); track tooth) { <label><input type="checkbox" [checked]="completedTeeth().includes(tooth)" (change)="toggleCompletedTooth(tooth)" />{{ tooth }}</label> }</div></fieldset> }
+          @if (treatmentError()) { <p class="form-error" role="alert">{{ treatmentError() }}</p> }
+          <button type="button" class="secondary" (click)="addTreatment()">Agregar tratamiento</button>
+          @for (treatment of treatments(); track $index) { <div class="treatment-chip">{{ label(treatment.type) }} · {{ treatment.description }} · {{ label(treatment.status) }} @if (treatment.toothNumbers.length) { <span> · piezas {{ treatment.toothNumbers.join(', ') }}</span> } <button type="button" (click)="removeTreatment($index)" aria-label="Quitar tratamiento">×</button></div> }
+        </section>
+      }
+      <div class="form-actions"><button class="secondary" type="button" (click)="formVisible.set(false)">Cancelar</button><button class="primary" type="submit" [disabled]="saving() || !notes().trim()">{{ saving() ? 'Guardando…' : 'Guardar atención' }}</button></div>
+    </form>
+  }
+  @if (!loading() && record(); as clinicalRecord) {
+    <div class="record-summary"><strong>HC-{{ clinicalRecord.medicalRecordNumber.toString().padStart(6, '0') }}</strong><span>{{ clinicalRecord.entries.length }} atenciones</span></div>
+    @if (!clinicalRecord.entries.length) { <section class="empty"><h2>Sin atenciones registradas</h2><p>Las nuevas atenciones aparecer&aacute;n en esta historia cl&iacute;nica.</p></section> }
+    <section class="timeline">@for (entry of clinicalRecord.entries; track entry.id) {
+      <article class="entry-card"><header><div><span class="entry-type">{{ label(entry.type) }}</span><h2>{{ entry.diagnosis || 'Atención clínica' }}</h2></div><time>{{ formatDate(entry.occurredAt) }}</time></header>
+        <p class="author">Dr. {{ entry.dentistFirstName }} {{ entry.dentistLastName }} @if (entry.appointmentId) { <span>· Asociada a un turno</span> }</p><p class="notes">{{ entry.notes }}</p>
+        @if (entry.treatments.length) { <h3>Tratamientos</h3><div class="treatments">@for (treatment of entry.treatments; track treatment.id) { <section><strong>{{ label(treatment.type) }} · {{ label(treatment.status) }}</strong><p>{{ treatment.description }}</p>@if (treatment.teeth.length) { <small>Piezas: {{ toothNumbers(treatment.teeth) }}</small> }</section> }</div> }
+        <details><summary>Historial de versiones ({{ entry.versions.length }})</summary>@for (version of entry.versions; track version.versionNumber) { <div class="version"><strong>Versión {{ version.versionNumber }} · {{ formatDate(version.createdAt) }}</strong><p>{{ version.notes }}</p><small>Registrada por {{ version.createdByFirstName }} {{ version.createdByLastName }}</small></div> }</details>
+      </article>
+    }</section>
+  }
+</main>

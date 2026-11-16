@@ -1,5 +1,6 @@
 import { of } from 'rxjs';
 import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { AuthService } from '../core/auth/auth.service';
 import { AppointmentsApiService } from '../core/appointments/appointments-api.service';
 import { PatientsApiService } from '../core/patients/patients-api.service';
@@ -20,6 +21,7 @@ describe('Agenda', () => {
     await TestBed.configureTestingModule({
       imports: [Agenda],
       providers: [
+        provideRouter([]),
         { provide: AuthService, useValue: authMock },
         { provide: AppointmentsApiService, useValue: apiMock },
         { provide: PatientsApiService, useValue: patientsMock },

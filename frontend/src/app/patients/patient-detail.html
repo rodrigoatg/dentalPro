@@ -1,0 +1,35 @@
+<main class="patient-detail">
+  <a routerLink="/patients" class="back-link">&larr; Pacientes</a>
+  @if (loading()) { <p role="status">Cargando paciente&hellip;</p> }
+  @if (error()) { <div class="error" role="alert">{{ error() }} <button type="button" (click)="load()">Reintentar</button></div> }
+  @if (message()) { <p class="success" role="status">{{ message() }}</p> }
+  @if (patient(); as current) {
+    <header><div><span class="eyebrow">PACIENTE</span><h1>{{ current.lastName }}, {{ current.firstName }}</h1>
+      <p>{{ current.documentType }} {{ current.documentNumber }} &middot; HC-{{ current.medicalRecordNumber.toString().padStart(6, '0') }}</p></div>
+      @if (!editing()) { <div class="edit-action"><button type="button" [disabled]="!canEdit()" [attr.aria-describedby]="canEdit() ? null : 'edit-permission-note'" (click)="startEditing()">Editar datos</button>@if (!canEdit()) { <small id="edit-permission-note">Tu cuenta necesita el permiso <code>patients.update</code> para editar.</small> }</div> }
+    </header>
+    <nav class="patient-links">
+      @if (canViewClinical()) { <a [routerLink]="['/patients', current.id, 'medical-record']">Historia clínica</a> }
+      <a [routerLink]="['/appointments']" [queryParams]="{ patientId: current.id }">Consultar turnos</a>
+    </nav>
+    @if (editing()) {
+      <form [formGroup]="form" (ngSubmit)="save()">
+        <label>Tipo de documento *<input formControlName="documentType"></label>
+        <label>Número de documento *<input formControlName="documentNumber"></label>
+        <label>Nombre *<input formControlName="firstName"></label>
+        <label>Apellido *<input formControlName="lastName"></label>
+        <label>Fecha de nacimiento<input type="date" formControlName="dateOfBirth"></label>
+        <label>Teléfono<input formControlName="phone"></label>
+        <label>Email<input type="email" formControlName="email"></label>
+        <label class="wide">Domicilio<input formControlName="address"></label>
+        @if (form.invalid && form.touched) { <p class="error" role="alert">Complet&aacute; tipo y n&uacute;mero de documento, nombre y apellido; verific&aacute; el correo.</p> }
+        <div class="actions"><button type="button" (click)="editing.set(false)">Cancelar</button><button type="submit" [disabled]="saving()">{{ saving() ? 'Guardando…' : 'Guardar cambios' }}</button></div>
+      </form>
+    } @else {
+      <section class="details"><div><small>Fecha de nacimiento</small><strong>{{ current.dateOfBirth || 'Sin informar' }}</strong></div>
+        <div><small>Teléfono</small><strong>{{ current.phone || 'Sin informar' }}</strong></div>
+        <div><small>Email</small><strong>{{ current.email || 'Sin informar' }}</strong></div>
+        <div><small>Domicilio</small><strong>{{ current.address || 'Sin informar' }}</strong></div></section>
+    }
+  }
+</main>

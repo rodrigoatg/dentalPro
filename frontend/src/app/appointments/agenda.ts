@@ -10,6 +10,7 @@ import {
 } from '../core/appointments/appointment.models';
 import { PatientListItem } from '../core/patients/patient.models';
 import { PatientsApiService } from '../core/patients/patients-api.service';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 
 interface AppointmentDay { date: string; label: string; appointments: Appointment[]; }
 interface StartOption { value: string; label: string; }
@@ -17,7 +18,7 @@ interface EditableWeeklyInterval { dayOfWeek: string; start: string; end: string
 
 @Component({
   selector: 'app-agenda',
-  imports: [FormsModule],
+  imports: [FormsModule, RouterLink],
   templateUrl: './agenda.html',
   styleUrl: './agenda.css',
 })
@@ -25,6 +26,7 @@ export class Agenda implements OnInit {
   private readonly api = inject(AppointmentsApiService);
   private readonly patientsApi = inject(PatientsApiService);
   private readonly auth = inject(AuthService);
+  protected readonly patientFilterId = inject(ActivatedRoute).snapshot.queryParamMap.get('patientId');
   private readonly viewPermission = 'appointments.view';
   protected readonly appointments = signal<Appointment[]>([]);
   protected readonly patients = signal<PatientListItem[]>([]);
@@ -65,6 +67,7 @@ export class Agenda implements OnInit {
     return Array.from({ length: 7 }, (_, index) => {
       const date = this.addDays(this.weekStart(), index);
       const dayAppointments = this.appointments()
+        .filter((appointment) => !this.patientFilterId || appointment.patientId === this.patientFilterId)
         .filter((appointment) => this.dateInZone(appointment.startDateTime, zone) === date)
         .sort((a, b) => a.startDateTime.localeCompare(b.startDateTime));
       return { date, label: this.dayLabel(date), appointments: dayAppointments };
@@ -72,6 +75,8 @@ export class Agenda implements OnInit {
   });
   protected readonly canScheduleManage = () => this.auth.hasPermission('appointments.schedule.manage');
   protected readonly canCreate = () => this.auth.hasPermission('appointments.create') && this.settings() !== null;
+  protected readonly canViewClinicalRecords = () => this.auth.hasPermission('clinical.records.view');
+  protected readonly canViewPatients = () => this.auth.hasPermission('patients.view');
 
   ngOnInit(): void {
     this.loadReferenceData();

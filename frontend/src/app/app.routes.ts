@@ -19,6 +19,18 @@ export const routes: Routes = [
     loadComponent: () => import('./dashboard/dashboard').then((module) => module.Dashboard),
   },
   {
+    path: 'patients/:patientId',
+    canActivate: [permissionGuard],
+    data: { permission: 'patients.view' },
+    loadComponent: () => import('./patients/patient-detail').then((module) => module.PatientDetail),
+  },
+  {
+    path: 'patients/:patientId/medical-record',
+    canActivate: [permissionGuard],
+    data: { permission: 'clinical.records.view' },
+    loadComponent: () => import('./clinical-records/clinical-record').then((module) => module.ClinicalRecordPage),
+  },
+  {
     path: 'patients',
     canActivate: [permissionGuard],
     data: { permission: 'patients.view' },

@@ -20,6 +20,7 @@ export interface PatientListItem {
   email: string | null;
   isActive: boolean;
   createdAt: string;
+  updatedAt?: string;
   medicalRecordNumber: number;
 }
 

@@ -10,6 +10,7 @@
   @if (scheduleError()) { <div class="notice notice-warning" role="status">{{ scheduleError() }} @if (canScheduleManage()) { <button type="button" (click)="openScheduleEditor()">Configurar horarios</button> }</div> }
   @if (error()) { <div class="notice notice-error" role="alert">{{ error() }}<button type="button" (click)="loadReferenceData()">Reintentar</button></div> }
   @if (message()) { <div class="notice notice-success" role="status">{{ message() }}<button type="button" (click)="message.set('')">Cerrar</button></div> }
+  @if (patientFilterId) { <p class="notice">Agenda filtrada por paciente. <a routerLink="/appointments">Ver agenda completa</a></p> }
 
   <section class="calendar-panel" aria-label="Agenda semanal">
     <div class="calendar-toolbar">
@@ -25,10 +26,12 @@
           @for (appointment of day.appointments; track appointment.appointmentId) {
             <article class="appointment-card" [class]="'appointment-card ' + statusClass(appointment.status)">
               <div class="appointment-time">{{ timeLabel(appointment.startDateTime) }}–{{ timeLabel(appointment.endDateTime) }} · {{ appointment.durationMinutes }} min</div>
-              <strong class="patient-name">{{ appointment.patientLastName }}, {{ appointment.patientFirstName }}</strong>
+              @if (canViewPatients()) { <a class="patient-name" [routerLink]="['/patients', appointment.patientId]">{{ appointment.patientLastName }}, {{ appointment.patientFirstName }}</a> }
+              @else { <strong class="patient-name">{{ appointment.patientLastName }}, {{ appointment.patientFirstName }}</strong> }
               <span class="dentist-name">Dr. {{ appointment.dentistFirstName }} {{ appointment.dentistLastName }}</span>
               @if (appointment.notes) { <span class="appointment-notes">{{ appointment.notes }}</span> }
               <span class="status-badge">{{ statusLabel(appointment.status) }}</span>
+              @if (canViewClinicalRecords()) { <a class="clinical-record-link" [routerLink]="['/patients', appointment.patientId, 'medical-record']" [queryParams]="{ appointmentId: appointment.appointmentId }">Historia clínica</a> }
               @if (canReschedule(appointment) || canCancel(appointment) || canConfirm(appointment) || canComplete(appointment)) {
                 <div class="card-actions">
                   @if (canReschedule(appointment)) { <button type="button" (click)="openReschedule(appointment)">Reprogramar</button> }
