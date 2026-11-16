@@ -42,6 +42,22 @@ public sealed class AppointmentApiTests
     }
 
     [Fact]
+    public async Task ClinicalRecordRoutes_RequireAuthenticationAndExplicitClinicalPermissions()
+    {
+        await using var factory = new AppointmentApiFactory();
+        var path = $"/api/patients/{Guid.NewGuid()}/medical-record";
+        using var anonymous = factory.CreateClient();
+        Assert.Equal(HttpStatusCode.Unauthorized, (await anonymous.GetAsync(path)).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized,
+            (await anonymous.PostAsJsonAsync($"{path}/entries", new { })).StatusCode);
+
+        using var patientViewer = factory.CreateAuthenticatedClient(Guid.NewGuid(), PermissionCatalog.PatientsView);
+        Assert.Equal(HttpStatusCode.Forbidden, (await patientViewer.GetAsync(path)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await patientViewer.PostAsJsonAsync($"{path}/entries", new { })).StatusCode);
+    }
+
+    [Fact]
     public async Task ClinicScheduleRoutes_ExposeSettingsToAgendaViewAndProtectAdministration()
     {
         await using var factory = new AppointmentApiFactory();

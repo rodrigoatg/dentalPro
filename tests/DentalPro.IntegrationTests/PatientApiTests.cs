@@ -32,7 +32,7 @@ public sealed class PatientApiTests
             documentType = "DNI",
             documentNumber = "12345678",
             firstName = "Ana",
-            lastName = "Pérez",
+            lastName = "PÃ©rez",
             dateOfBirth = (DateOnly?)null,
             phone = (string?)null,
             email = (string?)null,
@@ -64,7 +64,7 @@ public sealed class PatientApiTests
             documentType = "DNI",
             documentNumber = "12345678",
             firstName = "Ana",
-            lastName = "Pérez"
+            lastName = "PÃ©rez"
         };
 
         Assert.Equal(HttpStatusCode.Created, (await client.PostAsJsonAsync("/api/patients", request)).StatusCode);
@@ -85,7 +85,7 @@ public sealed class PatientApiTests
             documentType = "DNI",
             documentNumber = "12345678",
             firstName = " ",
-            lastName = "Pérez"
+            lastName = "PÃ©rez"
         };
 
         var response = await client.PostAsJsonAsync("/api/patients", request);
@@ -204,6 +204,28 @@ public sealed class PatientApiTests
                 patient.CreatedAt,
                 patient.MedicalRecord.MedicalRecordNumber!.Value)).ToArray();
             return Task.FromResult(items);
+        }
+
+        public Task<int> CountAsync(CancellationToken cancellationToken = default) => Task.FromResult(_patients.Count);
+
+        public Task<IReadOnlyList<PatientListItem>> SearchAsync(string? search, CancellationToken cancellationToken = default) =>
+            ListAsync(cancellationToken);
+
+        public Task<PatientDetails?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+        {
+            var patient = _patients.SingleOrDefault(item => item.Id == id);
+            return Task.FromResult(patient is null ? null : new PatientDetails(patient.Id, patient.DocumentType,
+                patient.DocumentNumber, patient.FirstName, patient.LastName, patient.DateOfBirth, patient.Phone,
+                patient.Email, patient.Address, patient.IsActive, patient.CreatedAt, patient.UpdatedAt,
+                patient.MedicalRecord.MedicalRecordNumber!.Value));
+        }
+
+        public Task UpdateAsync(Guid id, UpdatePatientData data, CancellationToken cancellationToken = default)
+        {
+            var patient = _patients.SingleOrDefault(item => item.Id == id) ?? throw new PatientNotFoundException();
+            patient.UpdatePersonalInformation(data.DocumentType, data.DocumentNumber, data.FirstName, data.LastName,
+                data.DateOfBirth, data.Phone, data.Email, data.Address);
+            return Task.CompletedTask;
         }
     }
 }

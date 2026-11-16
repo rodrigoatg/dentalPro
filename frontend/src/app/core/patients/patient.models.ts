@@ -27,3 +27,7 @@ export interface PatientListItem {
 export interface CreatedPatient extends PatientListItem {
   address: string | null;
 }
+
+export interface PatientCount {
+  count: number;
+}

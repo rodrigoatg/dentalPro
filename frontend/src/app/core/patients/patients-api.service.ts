@@ -1,7 +1,7 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { CreatePatientRequest, CreatedPatient, PatientListItem } from './patient.models';
+import { CreatePatientRequest, CreatedPatient, PatientCount, PatientListItem } from './patient.models';
 
 @Injectable({ providedIn: 'root' })
 export class PatientsApiService {
@@ -12,6 +12,10 @@ export class PatientsApiService {
     const normalizedSearch = search?.trim().replace(/\s+/g, ' ');
     const params = normalizedSearch ? new HttpParams().set('search', normalizedSearch) : undefined;
     return this.http.get<PatientListItem[]>(this.endpoint, { params });
+  }
+
+  count(): Observable<PatientCount> {
+    return this.http.get<PatientCount>(`${this.endpoint}/count`);
   }
 
   get(id: string): Observable<CreatedPatient> {

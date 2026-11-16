@@ -1,4 +1,5 @@
 using DentalPro.Application.Appointments;
+using DentalPro.Application.ClinicalRecords;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Logging;
@@ -8,7 +9,7 @@ namespace DentalPro.Infrastructure.Persistence;
 
 public sealed class AppointmentUnitOfWork(
     DentalProDbContext dbContext,
-    ILogger<AppointmentUnitOfWork> logger) : IAppointmentUnitOfWork
+    ILogger<AppointmentUnitOfWork> logger) : IAppointmentUnitOfWork, IClinicalUnitOfWork
 {
     private int _isExecuting;
 

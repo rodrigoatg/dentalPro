@@ -20,6 +20,12 @@ public sealed class DentalProDbContext(DbContextOptions<DentalProDbContext> opti
     public DbSet<ClinicScheduleDateExceptionRow> ClinicScheduleExceptions => Set<ClinicScheduleDateExceptionRow>();
     public DbSet<ClinicScheduleExceptionIntervalRow> ClinicScheduleExceptionIntervals => Set<ClinicScheduleExceptionIntervalRow>();
     public DbSet<AuditEventRow> AuditEvents => Set<AuditEventRow>();
+    public DbSet<ClinicalEntryRow> ClinicalEntries => Set<ClinicalEntryRow>();
+    public DbSet<ClinicalEntryVersionRow> ClinicalEntryVersions => Set<ClinicalEntryVersionRow>();
+    public DbSet<ClinicalEntryTreatmentRow> ClinicalEntryTreatments => Set<ClinicalEntryTreatmentRow>();
+    public DbSet<ClinicalEntryVersionTreatmentRow> ClinicalEntryVersionTreatments => Set<ClinicalEntryVersionTreatmentRow>();
+    public DbSet<TreatmentRow> Treatments => Set<TreatmentRow>();
+    public DbSet<TreatmentToothRow> TreatmentTeeth => Set<TreatmentToothRow>();
     public DbSet<Permission> Permissions => Set<Permission>();
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
 

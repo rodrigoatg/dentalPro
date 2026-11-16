@@ -54,13 +54,7 @@ public sealed class Patient
         string? email = null,
         string? address = null)
     {
-        EnsureRequiredName(firstName, nameof(firstName));
-        EnsureRequiredName(lastName, nameof(lastName));
-
-        if (dateOfBirth > DateOnly.FromDateTime(DateTime.UtcNow))
-        {
-            throw new ArgumentException("Date of birth cannot be in the future.", nameof(dateOfBirth));
-        }
+        ValidatePersonalInformation(documentType, documentNumber, firstName, lastName, dateOfBirth);
 
         var patientId = Guid.NewGuid();
         var now = DateTimeOffset.UtcNow;
@@ -78,6 +72,33 @@ public sealed class Patient
             address,
             now,
             medicalRecord);
+    }
+
+    public static void ValidatePersonalInformation(
+        string? documentType, string? documentNumber, string? firstName, string? lastName, DateOnly? dateOfBirth)
+    {
+        EnsureRequiredName(documentType, nameof(documentType));
+        EnsureRequiredName(documentNumber, nameof(documentNumber));
+        EnsureRequiredName(firstName, nameof(firstName));
+        EnsureRequiredName(lastName, nameof(lastName));
+        if (dateOfBirth > DateOnly.FromDateTime(DateTime.UtcNow))
+            throw new ArgumentException("Date of birth cannot be in the future.", nameof(dateOfBirth));
+    }
+
+    public void UpdatePersonalInformation(
+        string documentType, string documentNumber, string firstName, string lastName,
+        DateOnly? dateOfBirth, string? phone, string? email, string? address)
+    {
+        ValidatePersonalInformation(documentType, documentNumber, firstName, lastName, dateOfBirth);
+        DocumentType = documentType.Trim();
+        DocumentNumber = documentNumber.Trim();
+        FirstName = firstName.Trim();
+        LastName = lastName.Trim();
+        DateOfBirth = dateOfBirth;
+        Phone = string.IsNullOrWhiteSpace(phone) ? null : phone.Trim();
+        Email = string.IsNullOrWhiteSpace(email) ? null : email.Trim();
+        Address = string.IsNullOrWhiteSpace(address) ? null : address.Trim();
+        UpdatedAt = DateTimeOffset.UtcNow;
     }
 
     public void Deactivate()

@@ -2,6 +2,20 @@ namespace DentalPro.Domain.Patients;
 
 public sealed class MedicalRecord
 {
+    private MedicalRecord(Guid id, Guid patientId, long medicalRecordNumber, DateTimeOffset startedAt,
+        DateTimeOffset? lastClinicalActivityAt, DateTimeOffset createdAt, DateTimeOffset updatedAt,
+        Odontogram odontogram)
+    {
+        Id = id;
+        PatientId = patientId;
+        MedicalRecordNumber = medicalRecordNumber;
+        StartedAt = startedAt.ToUniversalTime();
+        LastClinicalActivityAt = lastClinicalActivityAt?.ToUniversalTime();
+        CreatedAt = createdAt.ToUniversalTime();
+        UpdatedAt = updatedAt.ToUniversalTime();
+        Odontogram = odontogram;
+    }
+
     private MedicalRecord(Guid id, Guid patientId, DateTimeOffset createdAt)
     {
         Id = id;
@@ -31,6 +45,18 @@ public sealed class MedicalRecord
         return new MedicalRecord(Guid.NewGuid(), patientId, createdAt);
     }
 
+    public static MedicalRecord Rehydrate(Guid id, Guid patientId, long medicalRecordNumber,
+        DateTimeOffset startedAt, DateTimeOffset? lastClinicalActivityAt, DateTimeOffset createdAt,
+        DateTimeOffset updatedAt, Odontogram odontogram)
+    {
+        ArgumentNullException.ThrowIfNull(odontogram);
+        if (id == Guid.Empty || patientId == Guid.Empty || medicalRecordNumber <= 0 ||
+            odontogram.MedicalRecordId != id)
+            throw new ArgumentException("Persisted medical record data is invalid.");
+        return new MedicalRecord(id, patientId, medicalRecordNumber, startedAt,
+            lastClinicalActivityAt, createdAt, updatedAt, odontogram);
+    }
+
     public void AssignMedicalRecordNumber(long number)
     {
         if (number <= 0)
@@ -44,5 +70,13 @@ public sealed class MedicalRecord
         }
 
         MedicalRecordNumber = number;
+    }
+
+    public void RecordClinicalActivity(DateTimeOffset occurredAt, DateTimeOffset? updatedAt = null)
+    {
+        var activity = occurredAt.ToUniversalTime();
+        if (LastClinicalActivityAt is null || activity > LastClinicalActivityAt.Value)
+            LastClinicalActivityAt = activity;
+        UpdatedAt = (updatedAt ?? DateTimeOffset.UtcNow).ToUniversalTime();
     }
 }

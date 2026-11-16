@@ -230,7 +230,10 @@ Business rules:
 - The MedicalRecord must support future interoperability requirements.
 - Access to clinical information must be restricted to authorized users.
 
-MVP scope: Creation of the MedicalRecord and empty Odontogram is included. Clinical entries, detailed clinical history, and assignment of the database-generated MedicalRecordNumber during persistence are handled in their respective implementation steps.
+MVP scope: Creation of the MedicalRecord and empty Odontogram is included.
+ClinicalEntry recording and history reads are implemented in the clinical-record
+slice; assignment of the database-generated MedicalRecordNumber is handled by
+Patient persistence.
 ### ClinicalEntry
 
 Represents an individual clinical event, observation, or intervention
@@ -242,7 +245,8 @@ Attributes:
 - MedicalRecordId
 - DentistId
 - AppointmentId
-- TreatmentId
+- Diagnosis (optional)
+- TreatmentIds (zero or many)
 - ClinicalEntryType
 - OccurredAt
 - Notes
@@ -263,7 +267,7 @@ Relationships:
 - Belongs to exactly one MedicalRecord.
 - Has exactly one responsible Dentist.
 - May be associated with an Appointment.
-- May be associated with a Treatment.
+- May be associated with zero or many Treatments.
 
 Business rules:
 
@@ -271,8 +275,9 @@ Business rules:
 - A ClinicalEntry must preserve the date and responsible Dentist.
 - AppointmentId is optional because not every clinical event must originate
   from a scheduled appointment.
-- TreatmentId is optional because not every clinical event is related to
-  a specific Treatment.
+- A ClinicalEntry may reference several Treatments; the association is
+  represented independently so a single encounter can document multiple
+  interventions.
 - ClinicalEntry should provide sufficient information to understand the
   clinical event without replacing structured Treatment data.
 - ClinicalEntry does not represent the current state of the Odontogram.
@@ -288,9 +293,10 @@ Versioning:
 - Previous versions cannot be modified or deleted through normal
   application operations.
 
-MVP scope: ClinicalEntry versioning is required. Previous versions remain
-preserved and accessible. This document does not prescribe the persistence
-mechanism.
+MVP scope: the initial immutable version is created with every ClinicalEntry
+and remains accessible. Editing is not exposed in the initial clinical-record
+workflow; future amendments must append a complete version rather than
+overwrite the existing one.
 
 ### ClinicalEntryVersion
 
@@ -308,7 +314,8 @@ Attributes:
 - MedicalRecordId
 - DentistId
 - AppointmentId
-- TreatmentId
+- Diagnosis (optional)
+- TreatmentIds (zero or many)
 - ClinicalEntryType
 - OccurredAt
 - Notes
@@ -328,6 +335,7 @@ Business rules:
 - Each modification creates a new version.
 - Each version contains the complete state of the ClinicalEntry at the
   time it was created.
+- Treatment associations are snapshotted as zero or many Treatment IDs.
 - VersionNumber must be sequential within a ClinicalEntry.
 - Only authorized users may create new versions.
 - The system must preserve the identity of the user who created each
@@ -880,8 +888,9 @@ constraints, not by an individual Permission instance.
 
 | Code | Meaning | Module |
 | --- | --- | --- |
-| `patients.view` | List patients | Patients |
+| `patients.view` | View and search patients | Patients |
 | `patients.create` | Create patients | Patients |
+| `patients.update` | Edit patient personal information | Patients |
 | `users.view` | List and inspect user accounts | Identity |
 | `users.create` | Create user accounts | Identity |
 | `users.status.manage` | Activate or deactivate user accounts | Identity |
@@ -890,10 +899,11 @@ constraints, not by an individual Permission instance.
 | `roles.permissions.manage` | Assign or remove permissions on roles | Identity |
 | `permissions.view` | View the backend-defined permission catalog | Identity |
 
-The patient catalog is limited to the current list and create endpoints;
-there is no `patients.edit` permission because no patient-edit endpoint is
-implemented. Appointment, clinical-record and treatment permissions are
-excluded until corresponding endpoints exist.
+Patient access includes listing/searching, creation and editing personal
+information. Clinical records, odontograms and appointments remain separate
+aggregates and are not changed by patient profile edits. Appointment,
+clinical-record and treatment permissions are excluded until corresponding
+endpoints exist.
 
 Protected administrative permissions are defined in backend code and cannot
 be removed from Administrator by any normal API operation:
@@ -916,6 +926,7 @@ Initial role-permission matrix:
 | --- | --- | --- | --- |
 | `patients.view` | Yes | Yes | Yes |
 | `patients.create` | Yes | Yes | Yes |
+| `patients.update` | Yes | Yes | Yes |
 | `users.view` | Yes (protected) | No | No |
 | `users.create` | Yes (protected) | No | No |
 | `users.status.manage` | Yes (protected) | No | No |

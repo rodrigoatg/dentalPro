@@ -79,12 +79,14 @@ public sealed class SecurityBootstrapper(
             [SystemRoles.Dentist] =
             [
                 PermissionCatalog.AppointmentsView, PermissionCatalog.AppointmentsConfirm,
-                PermissionCatalog.AppointmentsComplete
+                PermissionCatalog.AppointmentsComplete, PermissionCatalog.ClinicalRecordsView,
+                PermissionCatalog.ClinicalEntriesCreate, PermissionCatalog.TreatmentsCreate
             ]
         };
         foreach (var roleName in SystemRoles.All)
         {
-            foreach (var code in new[] { PermissionCatalog.PatientsView, PermissionCatalog.PatientsCreate }
+            foreach (var code in new[] { PermissionCatalog.PatientsView, PermissionCatalog.PatientsCreate,
+                             PermissionCatalog.PatientsUpdate }
                          .Concat(initialAssignments[roleName]))
             {
                 desired.Add((roleIds[roleName], permissionsByCode[code].Id));

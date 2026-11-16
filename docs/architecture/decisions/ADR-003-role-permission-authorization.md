@@ -24,8 +24,8 @@ be granted to Administrator merely because of that role name.
   Permission codes are stable authorization identifiers; display names and
   descriptions are mutable metadata.
 - Only permissions for implemented endpoints are included. Initial patient
-  permissions are `patients.view` and `patients.create`; patient editing,
-  scheduling and clinical permissions are added only with their endpoints.
+  permissions include `patients.view`, `patients.create` and `patients.update`;
+  each is added only with its corresponding endpoint.
 - Current role-permission assignments are checked by the API for every
   authorization decision. The MVP does not cache effective permissions, so
   assignment changes apply on the next request without a new login.

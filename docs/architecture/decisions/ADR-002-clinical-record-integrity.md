@@ -36,6 +36,10 @@ For the MVP, every ClinicalEntry must be versioned so that previous
 versions are preserved and accessible. This requirement does not select a
 specific persistence mechanism. Full Event Sourcing is not required.
 
+In the clinical-record persistence implementation, version rows are append-only:
+the application exposes no version update or delete operation, and PostgreSQL
+rejects `UPDATE` and `DELETE` against version rows and their treatment-link rows.
+
 ## Consequences
 
 ### Positive

@@ -34,8 +34,8 @@ public sealed class SecurityAdministrationTests
             .GetUsersInRoleAsync(SystemRoles.Administrator);
 
         Assert.Equal(3, roles.Count);
-        Assert.Equal(17, permissions.Count);
-        Assert.Equal(31, assignments.Count);
+        Assert.Equal(22, permissions.Count);
+        Assert.Equal(37, assignments.Count);
         Assert.Single(administrator);
         Assert.True(administrator[0].IsActive);
 
@@ -47,6 +47,8 @@ public sealed class SecurityAdministrationTests
                 assignment.PermissionId == permissionIds[PermissionCatalog.PatientsView]);
             Assert.Contains(assignments, assignment => assignment.RoleId == roleIds[roleName] &&
                 assignment.PermissionId == permissionIds[PermissionCatalog.PatientsCreate]);
+            Assert.Contains(assignments, assignment => assignment.RoleId == roleIds[roleName] &&
+                assignment.PermissionId == permissionIds[PermissionCatalog.PatientsUpdate]);
         }
 
         var adminCodes = assignments.Where(assignment => assignment.RoleId == roleIds[SystemRoles.Administrator])
@@ -87,6 +89,18 @@ public sealed class SecurityAdministrationTests
                     PermissionCatalog.AppointmentsScheduleManage]
             };
             Assert.DoesNotContain(assignedCodes, forbidden.Contains);
+        }
+        var dentistCodes = assignments.Where(item => item.RoleId == roleIds[SystemRoles.Dentist])
+            .Select(item => permissions.Single(permission => permission.Id == item.PermissionId).Code).ToHashSet();
+        Assert.Contains(PermissionCatalog.ClinicalRecordsView, dentistCodes);
+        Assert.Contains(PermissionCatalog.ClinicalEntriesCreate, dentistCodes);
+        Assert.Contains(PermissionCatalog.TreatmentsCreate, dentistCodes);
+        Assert.DoesNotContain(PermissionCatalog.ClinicalRecordsViewAll, dentistCodes);
+        foreach (var roleName in new[] { SystemRoles.Administrator, SystemRoles.Receptionist })
+        {
+            var clinicalCodes = assignments.Where(item => item.RoleId == roleIds[roleName])
+                .Select(item => permissions.Single(permission => permission.Id == item.PermissionId).Code);
+            Assert.DoesNotContain(clinicalCodes, code => code.StartsWith("clinical.", StringComparison.Ordinal));
         }
     }
 

@@ -4,8 +4,10 @@ using DentalPro.Api.Authorization;
 using DentalPro.Api.Identity;
 using DentalPro.Api.Patients;
 using DentalPro.Api.Appointments;
+using DentalPro.Api.ClinicalRecords;
 using DentalPro.Application.Patients;
 using DentalPro.Application.Appointments;
+using DentalPro.Application.ClinicalRecords;
 using DentalPro.Infrastructure.DependencyInjection;
 using DentalPro.Application.Administration;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,6 +18,9 @@ builder.Services.AddDentalProJwtBearerAuthentication();
 builder.Services.AddPermissionAuthorization();
 builder.Services.AddScoped<CreatePatient>();
 builder.Services.AddScoped<ListPatients>();
+builder.Services.AddScoped<CountPatients>();
+builder.Services.AddScoped<GetPatient>();
+builder.Services.AddScoped<UpdatePatient>();
 builder.Services.AddScoped<ListAppointments>();
 builder.Services.AddScoped<GetAppointmentAvailability>();
 builder.Services.AddScoped<CreateAppointment>();
@@ -28,6 +33,8 @@ builder.Services.AddScoped<CreateClinicSchedule>();
 builder.Services.AddScoped<UpdateClinicSchedule>();
 builder.Services.AddScoped<SetClinicScheduleException>();
 builder.Services.AddScoped<RemoveClinicScheduleException>();
+builder.Services.AddScoped<GetClinicalRecord>();
+builder.Services.AddScoped<CreateClinicalEntry>();
 
 var app = builder.Build();
 if (args.Contains("--bootstrap-security", StringComparer.Ordinal))
@@ -44,6 +51,7 @@ app.MapAdministrationEndpoints();
 app.MapPatientEndpoints();
 app.MapAppointmentEndpoints();
 app.MapClinicScheduleEndpoints();
+app.MapClinicalRecordEndpoints();
 app.Run();
 
 public partial class Program;

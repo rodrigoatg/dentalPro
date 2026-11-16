@@ -371,6 +371,157 @@ namespace DentalPro.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("DentalPro.Infrastructure.Persistence.Models.ClinicalEntryRow", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AppointmentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamptz");
+
+                    b.Property<Guid>("DentistId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Diagnosis")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("MedicalRecordId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Notes")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("OccurredAt")
+                        .HasColumnType("timestamptz");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamptz");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AppointmentId")
+                        .HasDatabaseName("IX_ClinicalEntries_AppointmentId");
+
+                    b.HasIndex("DentistId")
+                        .HasDatabaseName("IX_ClinicalEntries_DentistId");
+
+                    b.HasIndex("MedicalRecordId", "OccurredAt")
+                        .HasDatabaseName("IX_ClinicalEntries_MedicalRecordId_OccurredAt");
+
+                    b.ToTable("ClinicalEntries", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_ClinicalEntries_Type", "\"Type\" IN ('Consultation','Treatment','Observation','FollowUp','ExternalRecord','Other')");
+                        });
+                });
+
+            modelBuilder.Entity("DentalPro.Infrastructure.Persistence.Models.ClinicalEntryTreatmentRow", b =>
+                {
+                    b.Property<Guid>("ClinicalEntryId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TreatmentId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("ClinicalEntryId", "TreatmentId");
+
+                    b.HasIndex("TreatmentId");
+
+                    b.ToTable("ClinicalEntryTreatments", (string)null);
+                });
+
+            modelBuilder.Entity("DentalPro.Infrastructure.Persistence.Models.ClinicalEntryVersionRow", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AppointmentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ChangeReason")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("ClinicalEntryId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamptz");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("CreatedTransactionId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasDefaultValueSql("pg_current_xact_id()::text::bigint");
+
+                    b.Property<Guid>("DentistId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Diagnosis")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("MedicalRecordId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Notes")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("OccurredAt")
+                        .HasColumnType("timestamptz");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("VersionNumber")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AppointmentId");
+
+                    b.HasIndex("CreatedBy");
+
+                    b.HasIndex("DentistId");
+
+                    b.HasIndex("MedicalRecordId");
+
+                    b.HasIndex("ClinicalEntryId", "VersionNumber")
+                        .IsUnique()
+                        .HasDatabaseName("UX_ClinicalEntryVersions_Entry_VersionNumber");
+
+                    b.ToTable("ClinicalEntryVersions", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_ClinicalEntryVersions_Type", "\"Type\" IN ('Consultation','Treatment','Observation','FollowUp','ExternalRecord','Other')");
+
+                            t.HasCheckConstraint("CK_ClinicalEntryVersions_VersionNumber_Positive", "\"VersionNumber\" > 0");
+                        });
+                });
+
+            modelBuilder.Entity("DentalPro.Infrastructure.Persistence.Models.ClinicalEntryVersionTreatmentRow", b =>
+                {
+                    b.Property<Guid>("ClinicalEntryVersionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TreatmentId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("ClinicalEntryVersionId", "TreatmentId");
+
+                    b.HasIndex("TreatmentId");
+
+                    b.ToTable("ClinicalEntryVersionTreatments", (string)null);
+                });
+
             modelBuilder.Entity("DentalPro.Infrastructure.Persistence.Models.MedicalRecordRow", b =>
                 {
                     b.Property<Guid>("Id")
@@ -485,6 +636,107 @@ namespace DentalPro.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("UX_Patients_DocumentType_DocumentNumber");
 
                     b.ToTable("Patients", (string)null);
+                });
+
+            modelBuilder.Entity("DentalPro.Infrastructure.Persistence.Models.TreatmentRow", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal?>("Cost")
+                        .HasColumnType("numeric(12,2)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamptz");
+
+                    b.Property<Guid>("DentistId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("FinalizedAt")
+                        .HasColumnType("timestamptz");
+
+                    b.Property<bool>("IsFinalized")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("MedicalRecordId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("OccurredAt")
+                        .HasColumnType("timestamptz");
+
+                    b.Property<string>("Priority")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("RecordedAt")
+                        .HasColumnType("timestamptz");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamptz");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DentistId")
+                        .HasDatabaseName("IX_Treatments_DentistId");
+
+                    b.HasIndex("MedicalRecordId", "OccurredAt")
+                        .HasDatabaseName("IX_Treatments_MedicalRecordId_OccurredAt");
+
+                    b.ToTable("Treatments", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Treatments_Cost_NonNegative", "\"Cost\" IS NULL OR \"Cost\" >= 0");
+
+                            t.HasCheckConstraint("CK_Treatments_Priority", "\"Priority\" IN ('Low','Medium','High','Urgent')");
+
+                            t.HasCheckConstraint("CK_Treatments_Status", "\"Status\" IN ('Planned','InProgress','PartiallyCompleted','Completed','Cancelled')");
+
+                            t.HasCheckConstraint("CK_Treatments_Type", "\"Type\" IN ('Restoration','Extraction','RootCanal','Cleaning','Crown','Other')");
+                        });
+                });
+
+            modelBuilder.Entity("DentalPro.Infrastructure.Persistence.Models.TreatmentToothRow", b =>
+                {
+                    b.Property<Guid>("TreatmentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("ToothNumber")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamptz");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ResultingToothState")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("TreatmentId", "ToothNumber");
+
+                    b.ToTable("TreatmentTeeth", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_TreatmentTeeth_FdiPermanent", "\"ToothNumber\" / 10 BETWEEN 1 AND 4 AND \"ToothNumber\" % 10 BETWEEN 1 AND 8");
+
+                            t.HasCheckConstraint("CK_TreatmentTeeth_Status", "\"Status\" IN ('Planned','InProgress','Completed','Cancelled')");
+
+                            t.HasCheckConstraint("CK_TreatmentTeeth_CompletedAt_Consistency", "(\"Status\" = 'Completed') = (\"CompletedAt\" IS NOT NULL)");
+                        });
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole<System.Guid>", b =>
@@ -697,6 +949,110 @@ namespace DentalPro.Infrastructure.Persistence.Migrations
                         .HasConstraintName("FK_ClinicWeeklyIntervals_ClinicSchedules_ClinicScheduleId");
                 });
 
+            modelBuilder.Entity("DentalPro.Infrastructure.Persistence.Models.ClinicalEntryRow", b =>
+                {
+                    b.HasOne("DentalPro.Infrastructure.Persistence.Models.AppointmentRow", null)
+                        .WithMany()
+                        .HasForeignKey("AppointmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("FK_ClinicalEntries_Appointments_AppointmentId");
+
+                    b.HasOne("DentalPro.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("DentistId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_ClinicalEntries_AspNetUsers_DentistId");
+
+                    b.HasOne("DentalPro.Infrastructure.Persistence.Models.MedicalRecordRow", null)
+                        .WithMany()
+                        .HasForeignKey("MedicalRecordId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_ClinicalEntries_MedicalRecords_MedicalRecordId");
+                });
+
+            modelBuilder.Entity("DentalPro.Infrastructure.Persistence.Models.ClinicalEntryTreatmentRow", b =>
+                {
+                    b.HasOne("DentalPro.Infrastructure.Persistence.Models.ClinicalEntryRow", "ClinicalEntry")
+                        .WithMany("Treatments")
+                        .HasForeignKey("ClinicalEntryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_ClinicalEntryTreatments_ClinicalEntries_ClinicalEntryId");
+
+                    b.HasOne("DentalPro.Infrastructure.Persistence.Models.TreatmentRow", "Treatment")
+                        .WithMany("ClinicalEntries")
+                        .HasForeignKey("TreatmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_ClinicalEntryTreatments_Treatments_TreatmentId");
+
+                    b.Navigation("ClinicalEntry");
+
+                    b.Navigation("Treatment");
+                });
+
+            modelBuilder.Entity("DentalPro.Infrastructure.Persistence.Models.ClinicalEntryVersionRow", b =>
+                {
+                    b.HasOne("DentalPro.Infrastructure.Persistence.Models.AppointmentRow", null)
+                        .WithMany()
+                        .HasForeignKey("AppointmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("FK_ClinicalEntryVersions_Appointments_AppointmentId");
+
+                    b.HasOne("DentalPro.Infrastructure.Persistence.Models.ClinicalEntryRow", "ClinicalEntry")
+                        .WithMany("Versions")
+                        .HasForeignKey("ClinicalEntryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_ClinicalEntryVersions_ClinicalEntries_ClinicalEntryId");
+
+                    b.HasOne("DentalPro.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_ClinicalEntryVersions_AspNetUsers_CreatedBy");
+
+                    b.HasOne("DentalPro.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("DentistId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_ClinicalEntryVersions_AspNetUsers_DentistId");
+
+                    b.HasOne("DentalPro.Infrastructure.Persistence.Models.MedicalRecordRow", null)
+                        .WithMany()
+                        .HasForeignKey("MedicalRecordId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_ClinicalEntryVersions_MedicalRecords_MedicalRecordId");
+
+                    b.Navigation("ClinicalEntry");
+                });
+
+            modelBuilder.Entity("DentalPro.Infrastructure.Persistence.Models.ClinicalEntryVersionTreatmentRow", b =>
+                {
+                    b.HasOne("DentalPro.Infrastructure.Persistence.Models.ClinicalEntryVersionRow", "ClinicalEntryVersion")
+                        .WithMany("Treatments")
+                        .HasForeignKey("ClinicalEntryVersionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_ClinicalEntryVersionTreatments_ClinicalEntryVersions_VersionId");
+
+                    b.HasOne("DentalPro.Infrastructure.Persistence.Models.TreatmentRow", "Treatment")
+                        .WithMany()
+                        .HasForeignKey("TreatmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_ClinicalEntryVersionTreatments_Treatments_TreatmentId");
+
+                    b.Navigation("ClinicalEntryVersion");
+
+                    b.Navigation("Treatment");
+                });
+
             modelBuilder.Entity("DentalPro.Infrastructure.Persistence.Models.MedicalRecordRow", b =>
                 {
                     b.HasOne("DentalPro.Infrastructure.Persistence.Models.PatientRow", "Patient")
@@ -719,6 +1075,35 @@ namespace DentalPro.Infrastructure.Persistence.Migrations
                         .HasConstraintName("FK_Odontograms_MedicalRecords_MedicalRecordId");
 
                     b.Navigation("MedicalRecord");
+                });
+
+            modelBuilder.Entity("DentalPro.Infrastructure.Persistence.Models.TreatmentRow", b =>
+                {
+                    b.HasOne("DentalPro.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("DentistId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_Treatments_AspNetUsers_DentistId");
+
+                    b.HasOne("DentalPro.Infrastructure.Persistence.Models.MedicalRecordRow", null)
+                        .WithMany()
+                        .HasForeignKey("MedicalRecordId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_Treatments_MedicalRecords_MedicalRecordId");
+                });
+
+            modelBuilder.Entity("DentalPro.Infrastructure.Persistence.Models.TreatmentToothRow", b =>
+                {
+                    b.HasOne("DentalPro.Infrastructure.Persistence.Models.TreatmentRow", "Treatment")
+                        .WithMany("Teeth")
+                        .HasForeignKey("TreatmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_TreatmentTeeth_Treatments_TreatmentId");
+
+                    b.Navigation("Treatment");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
@@ -784,6 +1169,18 @@ namespace DentalPro.Infrastructure.Persistence.Migrations
                     b.Navigation("WeeklyIntervals");
                 });
 
+            modelBuilder.Entity("DentalPro.Infrastructure.Persistence.Models.ClinicalEntryRow", b =>
+                {
+                    b.Navigation("Treatments");
+
+                    b.Navigation("Versions");
+                });
+
+            modelBuilder.Entity("DentalPro.Infrastructure.Persistence.Models.ClinicalEntryVersionRow", b =>
+                {
+                    b.Navigation("Treatments");
+                });
+
             modelBuilder.Entity("DentalPro.Infrastructure.Persistence.Models.MedicalRecordRow", b =>
                 {
                     b.Navigation("Odontogram")
@@ -794,6 +1191,13 @@ namespace DentalPro.Infrastructure.Persistence.Migrations
                 {
                     b.Navigation("MedicalRecord")
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("DentalPro.Infrastructure.Persistence.Models.TreatmentRow", b =>
+                {
+                    b.Navigation("ClinicalEntries");
+
+                    b.Navigation("Teeth");
                 });
 #pragma warning restore 612, 618
         }

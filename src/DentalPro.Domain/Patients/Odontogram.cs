@@ -24,4 +24,14 @@ public sealed class Odontogram
 
         return new Odontogram(Guid.NewGuid(), medicalRecordId, createdAt);
     }
+
+    public static Odontogram Rehydrate(Guid id, Guid medicalRecordId, DateTimeOffset createdAt,
+        DateTimeOffset updatedAt)
+    {
+        if (id == Guid.Empty || medicalRecordId == Guid.Empty)
+            throw new ArgumentException("Persisted odontogram identifiers are invalid.");
+        var odontogram = new Odontogram(id, medicalRecordId, createdAt);
+        odontogram.UpdatedAt = updatedAt.ToUniversalTime();
+        return odontogram;
+    }
 }

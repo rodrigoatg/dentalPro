@@ -112,6 +112,7 @@ public sealed class PermissionCatalogTests
         {
             "patients.view",
             "patients.create",
+            "patients.update",
             "users.view",
             "users.create",
             "users.status.manage",
@@ -120,7 +121,8 @@ public sealed class PermissionCatalogTests
             "roles.permissions.manage",
             "permissions.view",
             "appointments.view", "appointments.view.all", "appointments.create", "appointments.update",
-            "appointments.cancel", "appointments.confirm", "appointments.complete", "appointments.schedule.manage"
+            "appointments.cancel", "appointments.confirm", "appointments.complete", "appointments.schedule.manage",
+            "clinical.records.view", "clinical.records.view.all", "clinical.entries.create", "clinical.treatments.create"
         };
         var definitions = _catalog.GetAll();
 

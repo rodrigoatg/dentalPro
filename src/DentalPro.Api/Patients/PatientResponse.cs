@@ -12,4 +12,5 @@ public sealed record PatientResponse(
     string? Address,
     bool IsActive,
     DateTimeOffset CreatedAt,
-    long MedicalRecordNumber);
+    long MedicalRecordNumber,
+    DateTimeOffset UpdatedAt);

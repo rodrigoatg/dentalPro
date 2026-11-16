@@ -7,6 +7,7 @@ public sealed class PermissionCatalog : IPermissionCatalog
 {
     public const string PatientsView = "patients.view";
     public const string PatientsCreate = "patients.create";
+    public const string PatientsUpdate = "patients.update";
     public const string UsersView = "users.view";
     public const string UsersCreate = "users.create";
     public const string UsersStatusManage = "users.status.manage";
@@ -22,12 +23,17 @@ public sealed class PermissionCatalog : IPermissionCatalog
     public const string AppointmentsConfirm = "appointments.confirm";
     public const string AppointmentsComplete = "appointments.complete";
     public const string AppointmentsScheduleManage = "appointments.schedule.manage";
+    public const string ClinicalRecordsView = "clinical.records.view";
+    public const string ClinicalRecordsViewAll = "clinical.records.view.all";
+    public const string ClinicalEntriesCreate = "clinical.entries.create";
+    public const string TreatmentsCreate = "clinical.treatments.create";
 
     private static readonly IReadOnlyCollection<PermissionDefinition> Definitions =
         Array.AsReadOnly<PermissionDefinition>(
     [
         new(PatientsView, "View patients", "List patients.", "Patients", false),
         new(PatientsCreate, "Create patients", "Register patients.", "Patients", false),
+        new(PatientsUpdate, "Update patients", "Edit patient personal information.", "Patients", false),
         new(UsersView, "View users", "List and inspect user accounts.", "Identity", true),
         new(UsersCreate, "Create users", "Create user accounts.", "Identity", true),
         new(UsersStatusManage, "Manage user status", "Activate or deactivate user accounts.", "Identity", true),
@@ -42,7 +48,11 @@ public sealed class PermissionCatalog : IPermissionCatalog
         new(AppointmentsCancel, "Cancel appointments", "Cancel appointments.", "Appointments", false),
         new(AppointmentsConfirm, "Confirm appointments", "Confirm appointments.", "Appointments", false),
         new(AppointmentsComplete, "Complete appointments", "Mark appointments as completed.", "Appointments", false),
-        new(AppointmentsScheduleManage, "Manage clinic schedule", "Configure clinic hours and exceptions.", "Appointments", false)
+        new(AppointmentsScheduleManage, "Manage clinic schedule", "Configure clinic hours and exceptions.", "Appointments", false),
+        new(ClinicalRecordsView, "View clinical records", "View scoped patient clinical history.", "Clinical", false),
+        new(ClinicalRecordsViewAll, "View all clinical records", "View clinical history across the clinic.", "Clinical", false),
+        new(ClinicalEntriesCreate, "Create clinical entries", "Record a clinical encounter.", "Clinical", false),
+        new(TreatmentsCreate, "Create treatments", "Record treatment plans and performed work.", "Clinical", false)
     ]);
 
     public IReadOnlyCollection<PermissionDefinition> GetAll() => Definitions;

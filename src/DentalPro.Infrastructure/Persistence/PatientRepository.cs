@@ -73,9 +73,33 @@ public sealed class PatientRepository(DentalProDbContext dbContext) : IPatientRe
         }
     }
 
-    public async Task<IReadOnlyList<PatientListItem>> ListAsync(CancellationToken cancellationToken = default)
+    public Task<IReadOnlyList<PatientListItem>> ListAsync(CancellationToken cancellationToken = default) =>
+        SearchAsync(null, cancellationToken);
+
+    public Task<int> CountAsync(CancellationToken cancellationToken = default) =>
+        dbContext.Patients.CountAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<PatientListItem>> SearchAsync(string? search, CancellationToken cancellationToken = default)
     {
-        return await dbContext.Patients
+        var query = dbContext.Patients.AsNoTracking();
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var terms = search.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            foreach (var item in terms)
+            {
+                var escaped = item.Replace("\\", "\\\\", StringComparison.Ordinal)
+                    .Replace("%", "\\%", StringComparison.Ordinal)
+                    .Replace("_", "\\_", StringComparison.Ordinal);
+                var pattern = $"%{escaped}%";
+                query = query.Where(patient =>
+                    EF.Functions.ILike(patient.FirstName, pattern, "\\") ||
+                    EF.Functions.ILike(patient.LastName, pattern, "\\") ||
+                    EF.Functions.ILike(patient.DocumentNumber, pattern, "\\") ||
+                    EF.Functions.ILike(patient.DocumentType, pattern, "\\"));
+            }
+        }
+
+        return await query
             .AsNoTracking()
             .OrderByDescending(patient => patient.CreatedAt)
             .ThenBy(patient => patient.Id)
@@ -92,6 +116,38 @@ public sealed class PatientRepository(DentalProDbContext dbContext) : IPatientRe
                 patient.CreatedAt,
                 patient.MedicalRecord.MedicalRecordNumber))
             .ToListAsync(cancellationToken);
+    }
+
+    public async Task<PatientDetails?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
+        await dbContext.Patients.AsNoTracking()
+            .Where(patient => patient.Id == id)
+            .Select(patient => new PatientDetails(
+                patient.Id, patient.DocumentType, patient.DocumentNumber, patient.FirstName, patient.LastName,
+                patient.DateOfBirth, patient.Phone, patient.Email, patient.Address, patient.IsActive,
+                patient.CreatedAt, patient.UpdatedAt, patient.MedicalRecord.MedicalRecordNumber))
+            .SingleOrDefaultAsync(cancellationToken);
+
+    public async Task UpdateAsync(Guid id, UpdatePatientData data, CancellationToken cancellationToken = default)
+    {
+        var row = await dbContext.Patients.SingleOrDefaultAsync(patient => patient.Id == id, cancellationToken)
+            ?? throw new PatientNotFoundException();
+        row.DocumentType = data.DocumentType;
+        row.DocumentNumber = data.DocumentNumber;
+        row.FirstName = data.FirstName;
+        row.LastName = data.LastName;
+        row.DateOfBirth = data.DateOfBirth;
+        row.Phone = data.Phone;
+        row.Email = data.Email;
+        row.Address = data.Address;
+        row.UpdatedAt = DateTimeOffset.UtcNow;
+        try
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException exception) when (IsDuplicatePatientDocument(exception))
+        {
+            throw new PatientDocumentAlreadyExistsException();
+        }
     }
 
     private static bool IsDuplicatePatientDocument(DbUpdateException exception) =>

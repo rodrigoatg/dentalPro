@@ -41,7 +41,7 @@ public sealed class Treatment
     private Treatment(Guid recordId, Guid dentistId, TreatmentType type, DateTimeOffset occurredAt, string description, TreatmentPriority priority, decimal? cost)
     {
         Id = Guid.NewGuid(); MedicalRecordId = recordId; DentistId = dentistId; TreatmentType = type;
-        OccurredAt = occurredAt; Description = description; Priority = priority; Cost = cost;
+        OccurredAt = occurredAt.ToUniversalTime(); Description = description.Trim(); Priority = priority; Cost = cost;
         Status = TreatmentStatus.Planned; RecordedAt = CreatedAt = UpdatedAt = DateTimeOffset.UtcNow;
     }
     public Guid Id { get; }
@@ -60,12 +60,15 @@ public sealed class Treatment
     public DateTimeOffset UpdatedAt { get; private set; }
     public IReadOnlyCollection<TreatmentTooth> Teeth => _teeth.AsReadOnly();
     public static Treatment Create(Guid medicalRecordId, Guid dentistId, TreatmentType treatmentType, DateTimeOffset occurredAt,
-        string description, IEnumerable<ToothNumber>? teeth = null, TreatmentPriority priority = TreatmentPriority.Medium, decimal? cost = null)
+        string description, IEnumerable<ToothNumber>? teeth = null, TreatmentPriority priority = TreatmentPriority.Medium,
+        decimal? cost = null, TreatmentStatus initialStatus = TreatmentStatus.Planned)
     {
         if (medicalRecordId == Guid.Empty) throw new ArgumentException("Medical record is required.", nameof(medicalRecordId));
         if (dentistId == Guid.Empty) throw new ArgumentException("Dentist is required.", nameof(dentistId));
         if (!Enum.IsDefined(treatmentType)) throw new ArgumentOutOfRangeException(nameof(treatmentType));
         if (!Enum.IsDefined(priority)) throw new ArgumentOutOfRangeException(nameof(priority));
+        if (!Enum.IsDefined(initialStatus) || initialStatus == TreatmentStatus.PartiallyCompleted)
+            throw new ArgumentOutOfRangeException(nameof(initialStatus), "Partial completion is derived from per-tooth progress.");
         if (string.IsNullOrWhiteSpace(description)) throw new ArgumentException("Description is required.", nameof(description));
         if (cost < 0) throw new ArgumentOutOfRangeException(nameof(cost));
         var treatment = new Treatment(medicalRecordId, dentistId, treatmentType, occurredAt, description, priority, cost);
@@ -75,7 +78,19 @@ public sealed class Treatment
             if (values.Distinct().Count() != values.Length) throw new ArgumentException("Duplicate tooth.", nameof(teeth));
             treatment._teeth.AddRange(values.Select(x => new TreatmentTooth(x)));
         }
+        treatment.InitializeStatus(initialStatus, occurredAt);
         return treatment;
+    }
+
+    private void InitializeStatus(TreatmentStatus status, DateTimeOffset occurredAt)
+    {
+        foreach (var tooth in _teeth)
+        {
+            if (status == TreatmentStatus.InProgress) tooth.Start();
+            else if (status == TreatmentStatus.Completed) tooth.Complete(occurredAt.ToUniversalTime(), null, null);
+            else if (status == TreatmentStatus.Cancelled) tooth.Cancel();
+        }
+        Status = status;
     }
     public void StartTooth(ToothNumber number) { EnsureProgressable(); Find(number).Start(); Refresh(); }
     public void CompleteTooth(ToothNumber number, string? resultingToothState = null, string? notes = null, DateTimeOffset? completedAt = null)

@@ -11,7 +11,7 @@ public sealed class PatientUseCaseTests
         var repository = new InMemoryPatientRepository();
         var useCase = new CreatePatient(repository);
 
-        var patient = await useCase.ExecuteAsync("DNI", "123", "Ana", "Pérez");
+        var patient = await useCase.ExecuteAsync("DNI", "123", "Ana", "PÃ©rez");
 
         Assert.Same(patient, repository.AddedPatient);
         Assert.Equal(1, patient.MedicalRecord.MedicalRecordNumber);
@@ -25,7 +25,7 @@ public sealed class PatientUseCaseTests
         var useCase = new CreatePatient(repository);
 
         await Assert.ThrowsAsync<ArgumentException>(() =>
-            useCase.ExecuteAsync("DNI", "123", " ", "Pérez"));
+            useCase.ExecuteAsync("DNI", "123", " ", "PÃ©rez"));
 
         Assert.Null(repository.AddedPatient);
     }
@@ -34,7 +34,7 @@ public sealed class PatientUseCaseTests
     public async Task ListPatients_ReturnsRepositoryProjection()
     {
         var expected = new PatientListItem(
-            Guid.NewGuid(), "DNI", "123", "Ana", "Pérez", null, null, null, true,
+            Guid.NewGuid(), "DNI", "123", "Ana", "PÃ©rez", null, null, null, true,
             DateTimeOffset.UtcNow, 17);
         var repository = new InMemoryPatientRepository { ListedPatients = [expected] };
         var useCase = new ListPatients(repository);
@@ -58,5 +58,16 @@ public sealed class PatientUseCaseTests
 
         public Task<IReadOnlyList<PatientListItem>> ListAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(ListedPatients);
+
+        public Task<int> CountAsync(CancellationToken cancellationToken = default) => Task.FromResult(ListedPatients.Count);
+
+        public Task<IReadOnlyList<PatientListItem>> SearchAsync(string? search, CancellationToken cancellationToken = default) =>
+            Task.FromResult(ListedPatients);
+
+        public Task<PatientDetails?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
+            Task.FromResult<PatientDetails?>(null);
+
+        public Task UpdateAsync(Guid id, UpdatePatientData data, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
     }
 }

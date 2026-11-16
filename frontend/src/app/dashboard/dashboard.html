@@ -1,121 +1,156 @@
-<section class="welcome-card">
-  <div class="welcome-copy">
-    <span class="eyebrow">TU ESPACIO DE TRABAJO</span>
-    <h1>Una cl&iacute;nica organizada,<br /><span>paciente por paciente.</span></h1>
-    <p>Gestion&aacute; la informaci&oacute;n de tu consultorio desde un solo lugar.</p>
-    @if (canCreatePatients()) { <a class="button button-primary" routerLink="/patients"
-      ><span class="button-plus" aria-hidden="true">+</span>Registrar paciente</a
-    > }
-  </div>
-  <div class="welcome-art" aria-hidden="true">
-    <div class="art-orbit orbit-one"></div>
-    <div class="art-orbit orbit-two"></div>
-    <div class="art-glow"></div>
-    <svg
-      class="tooth-illustration"
-      viewBox="0 0 190 210"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path
-        d="M95 28C77 16 51 20 39 37C24 58 34 81 40 101C48 127 53 177 70 184C82 189 83 155 95 155C107 155 108 189 120 184C137 177 142 127 150 101C156 81 166 58 151 37C139 20 113 16 95 28Z"
-        fill="white"
-        stroke="#C7D9F1"
-        stroke-width="5"
-      />
-      <path d="M60 48C69 40 81 39 88 44" stroke="#E8F1FB" stroke-width="7" stroke-linecap="round" />
-      <circle cx="143" cy="42" r="7" fill="#65C8BC" />
-      <circle cx="38" cy="123" r="5" fill="#F0BD73" />
-    </svg>
-    <div class="art-label"><span class="art-label-dot"></span>Cuidado que conecta</div>
-  </div>
-</section>
-<div class="section-heading dashboard-section-heading">
-  <div>
-    <span class="eyebrow">VISTA GENERAL</span>
-    <h2>Tu cl&iacute;nica hoy</h2>
-  </div>
-  <span class="updated-label"><span class="live-dot"></span>Informaci&oacute;n actualizada</span>
-</div>
-<section class="metric-grid" aria-label="Indicadores de la cl&iacute;nica">
-  @if (canViewPatients()) {
-  <article class="metric-card patients-metric">
-    <div class="metric-topline">
-      <span class="metric-icon icon-patients">P</span><span class="metric-chip">EN SISTEMA</span>
+<section class="dashboard-page">
+  <header class="dashboard-heading">
+    <div>
+      <span class="eyebrow">TU ESPACIO DE TRABAJO</span>
+      @if (isAdministrator()) {
+        <h1>Resumen de la clínica</h1>
+        <p>Indicadores operativos y actividad de agenda.</p>
+      } @else if (isDentist()) {
+        <h1>Hola, {{ userFirstName() }}</h1>
+        <p>Tu jornada clínica, {{ clinicToday() ? periodLabel() : 'según la agenda de la clínica' }}.</p>
+      } @else if (isReceptionist()) {
+        <h1>Operación de la clínica</h1>
+        <p>Agenda semanal y accesos para la atención diaria.</p>
+      } @else {
+        <h1>DentalPro</h1>
+        <p>Accedé a los módulos habilitados para tu cuenta.</p>
+      }
     </div>
-    <p class="metric-label">Pacientes registrados</p>
-    @if (loading()) {
-      <div class="metric-skeleton" aria-label="Cargando"></div>
-    } @else if (error()) {
-      <p class="metric-error">{{ error() }}</p>
-    } @else {
-      <p class="metric-number">{{ patientCount() }}</p>
-    }
-    <a routerLink="/patients" class="metric-link"
-      >Ver pacientes <span aria-hidden="true">&rarr;</span></a
-    >
-  </article>
+    <button class="refresh-button" type="button" (click)="refresh()" aria-label="Actualizar dashboard">Actualizar</button>
+  </header>
+
+  @if (actionError()) { <p class="notice error" role="alert">{{ actionError() }}</p> }
+  @if (notice()) { <p class="notice success" role="status">{{ notice() }}</p> }
+
+  @if (isAdministrator()) {
+    <section class="metric-grid" aria-label="Indicadores actuales de la clínica">
+      <article class="metric-card">
+        <span class="metric-label">Pacientes registrados</span>
+        @if (patientsLoading()) { <span class="skeleton" aria-label="Cargando"></span> }
+        @else if (patientsError()) { <p class="inline-error" role="alert">{{ patientsError() }}</p> }
+        @else { <strong class="metric-value">{{ patientsCount() ?? '—' }}</strong> }
+        <a routerLink="/patients">Ver pacientes <span aria-hidden="true">&rarr;</span></a>
+      </article>
+      <article class="metric-card">
+        <span class="metric-label">Odontólogos activos</span>
+        @if (dentistsLoading()) { <span class="skeleton" aria-label="Cargando"></span> }
+        @else if (dentistsError()) { <p class="inline-error" role="alert">{{ dentistsError() }}</p> }
+        @else { <strong class="metric-value">{{ dentistsCount() ?? '—' }}</strong> }
+        <a routerLink="/admin">Gestión de usuarios <span aria-hidden="true">&rarr;</span></a>
+      </article>
+      <article class="metric-card appointment-summary">
+        <span class="metric-label">Turnos · {{ periodLabel() || 'esta semana' }}</span>
+        @if (appointmentsLoading() || scheduleLoading()) { <span class="skeleton" aria-label="Cargando"></span> }
+        @else if (scheduleError()) { <p class="inline-error">{{ scheduleError() }}</p> }
+        @else if (appointmentsError()) { <p class="inline-error" role="alert">{{ appointmentsError() }}</p> }
+        @else {
+          <div class="status-counts">
+            <span><b class="dot scheduled"></b>{{ scheduledCount() }} pendientes</span>
+            <span><b class="dot confirmed"></b>{{ confirmedCount() }} confirmados</span>
+            <span><b class="dot cancelled"></b>{{ cancelledCount() }} cancelados</span>
+            <span><b class="dot completed"></b>{{ completedCount() }} completados</span>
+          </div>
+        }
+        <a routerLink="/appointments">Abrir agenda <span aria-hidden="true">&rarr;</span></a>
+      </article>
+    </section>
+
+    <section class="dashboard-lower admin-lower">
+      <article class="panel activity-panel">
+        <header class="panel-heading"><div><span class="eyebrow">AGENDA</span><h2>Actividad reciente de turnos</h2></div><span class="period-note">{{ periodLabel() }}</span></header>
+        @if (appointmentsLoading() || scheduleLoading()) { <p class="loading-state" role="status">Cargando actividad&hellip;</p> }
+        @else if (scheduleError()) { <p class="empty-state">{{ scheduleError() }}</p> }
+        @else if (appointmentsError()) { <p class="inline-error" role="alert">{{ appointmentsError() }}</p> }
+        @else if (activityAppointments().length === 0) { <p class="empty-state">No hay turnos esta semana.</p> }
+        @else {
+          <ul class="activity-list">
+            @for (appointment of activityAppointments(); track appointment.appointmentId) {
+              <li>
+                <span class="activity-marker" [class]="'activity-marker ' + statusClass(appointment.status)"></span>
+                <div class="activity-copy"><strong>{{ appointment.patientLastName }}, {{ appointment.patientFirstName }}</strong><span>Dr. {{ appointment.dentistFirstName }} {{ appointment.dentistLastName }} · {{ statusLabel(appointment.status) }}</span></div>
+                <time>{{ dateTimeLabel(appointment.updatedAt) }}</time>
+              </li>
+            }
+          </ul>
+        }
+      </article>
+      <article class="panel shortcuts-panel">
+        <header class="panel-heading"><div><span class="eyebrow">ACCESOS</span><h2>Gestión diaria</h2></div></header>
+        <a class="shortcut" routerLink="/admin"><span class="shortcut-icon">U</span><span><strong>Usuarios</strong><small>Administrar cuentas y permisos</small></span><span class="arrow">&rarr;</span></a>
+        <a class="shortcut" routerLink="/patients"><span class="shortcut-icon">P</span><span><strong>Pacientes</strong><small>Consultar y registrar pacientes</small></span><span class="arrow">&rarr;</span></a>
+        <a class="shortcut" routerLink="/appointments"><span class="shortcut-icon">A</span><span><strong>Agenda</strong><small>Consultar y administrar turnos</small></span><span class="arrow">&rarr;</span></a>
+      </article>
+    </section>
+  } @else if (isReceptionist()) {
+    <section class="quick-actions" aria-label="Accesos rápidos">
+      <a class="primary-action" routerLink="/appointments"><span class="action-symbol">+</span><span><strong>Abrir agenda</strong><small>Consultar o registrar un turno</small></span><span class="arrow">&rarr;</span></a>
+      @if (canViewPatients()) { <a class="secondary-action" routerLink="/patients"><span class="action-symbol">P</span><span><strong>Pacientes</strong><small>{{ canCreatePatients() ? 'Consultar o registrar un paciente' : 'Consultar fichas de pacientes' }}</small></span><span class="arrow">&rarr;</span></a> }
+    </section>
+    <section class="panel calendar-panel">
+      <header class="panel-heading calendar-toolbar">
+        <div><span class="eyebrow">AGENDA GENERAL</span><h2>{{ periodLabel() || 'Semana de la clínica' }}</h2><small>{{ timeZone() }}</small></div>
+        <div class="calendar-controls"><button type="button" (click)="previousWeek()" aria-label="Semana anterior">&larr;</button><button type="button" (click)="goToToday()">Esta semana</button><button type="button" (click)="nextWeek()" aria-label="Semana siguiente">&rarr;</button></div>
+      </header>
+      @if (scheduleLoading() || appointmentsLoading()) { <p class="loading-state" role="status">Cargando agenda&hellip;</p> }
+      @else if (scheduleError()) { <p class="empty-state">{{ scheduleError() }}</p> }
+      @else if (appointmentsError()) { <p class="inline-error" role="alert">{{ appointmentsError() }}</p> }
+      @else {
+        <div class="week-grid">
+          @for (day of weekDays(); track day.date) {
+            <section class="day-column"><h3>{{ day.label }} <span>{{ day.appointments.length }}</span></h3>
+              @if (day.appointments.length === 0) { <p class="day-empty">Sin turnos</p> }
+              @for (appointment of day.appointments; track appointment.appointmentId) {
+                <article class="appointment-row">
+                  <span class="appointment-time">{{ timeLabel(appointment.startDateTime) }}</span>
+                  <div class="appointment-copy"><strong>{{ appointment.patientLastName }}, {{ appointment.patientFirstName }}</strong><span>Dr. {{ appointment.dentistFirstName }} {{ appointment.dentistLastName }}</span></div>
+                  <span class="status-pill" [class]="'status-pill ' + statusClass(appointment.status)">{{ statusLabel(appointment.status) }}</span>
+                  @if (canViewPatients()) { <a class="patient-link" [routerLink]="['/patients', appointment.patientId]">Paciente</a> }
+                </article>
+              }
+            </section>
+          }
+        </div>
+        @if (periodAppointments().length === 0) { <p class="empty-state">No hay turnos para esta semana.</p> }
+      }
+    </section>
+    <section class="panel upcoming-panel"><header class="panel-heading"><div><span class="eyebrow">PRÓXIMOS</span><h2>Turnos por atender</h2></div><a routerLink="/appointments">Ver agenda completa</a></header>
+      @if (!appointmentsLoading() && upcomingAppointments().length === 0 && !scheduleError() && !appointmentsError()) { <p class="empty-state">No hay próximos turnos esta semana.</p> }
+      @else { @for (appointment of upcomingAppointments().slice(0, 4); track appointment.appointmentId) { <div class="upcoming-row"><time>{{ dateTimeLabel(appointment.startDateTime) }}</time><strong>{{ appointment.patientLastName }}, {{ appointment.patientFirstName }}</strong><span class="status-pill" [class]="'status-pill ' + statusClass(appointment.status)">{{ statusLabel(appointment.status) }}</span></div> } }
+    </section>
+  } @else if (isDentist()) {
+    <section class="dentist-summary">
+      <article class="summary-highlight"><span class="eyebrow">TU AGENDA · {{ selectedDay() ? dayLabel(selectedDay()) : 'HOY' }}</span><strong>{{ periodAppointments().length }}</strong><span>turnos del día</span></article>
+      <article class="summary-highlight"><span class="eyebrow">PENDIENTES DE ATENCIÓN</span><strong>{{ pendingAppointments().length }}</strong><span>turnos programados o confirmados</span></article>
+      <article class="summary-highlight next-highlight"><span class="eyebrow">PRÓXIMO PACIENTE</span>@if (nextAppointment(); as next) { <strong>{{ next.patientLastName }}, {{ next.patientFirstName }}</strong><span>{{ timeLabel(next.startDateTime) }} · {{ statusLabel(next.status) }}</span> } @else { <strong class="no-next">Sin próximos turnos</strong><span>para el día seleccionado</span> }</article>
+    </section>
+    <section class="panel dentist-agenda">
+      <header class="panel-heading calendar-toolbar"><div><span class="eyebrow">AGENDA DEL ODONTÓLOGO</span><h2>{{ selectedDay() ? dayLabel(selectedDay()) : 'Agenda del día' }}</h2><small>{{ timeZone() }}</small></div><div class="calendar-controls"><button type="button" (click)="previousDay()" aria-label="Día anterior">&larr;</button><button type="button" (click)="goToToday()">Hoy</button><button type="button" (click)="nextDay()" aria-label="Día siguiente">&rarr;</button></div></header>
+      @if (scheduleLoading() || appointmentsLoading()) { <p class="loading-state" role="status">Cargando tu agenda&hellip;</p> }
+      @else if (scheduleError()) { <p class="empty-state">{{ scheduleError() }}</p> }
+      @else if (appointmentsError()) { <p class="inline-error" role="alert">{{ appointmentsError() }}</p> }
+      @else if (periodAppointments().length === 0) { <p class="empty-state">No tenés turnos para este día.</p> }
+      @else {
+        <div class="dentist-appointment-list">
+          @for (appointment of periodAppointments(); track appointment.appointmentId) {
+            <article class="dentist-appointment">
+              <time class="large-time">{{ timeLabel(appointment.startDateTime) }}</time>
+              <div class="dentist-appointment-main"><span class="eyebrow">{{ appointment.durationMinutes }} MIN</span><h3>{{ appointment.patientLastName }}, {{ appointment.patientFirstName }}</h3><p>{{ appointment.notes || 'Sin notas para el turno.' }}</p><span class="status-pill" [class]="'status-pill ' + statusClass(appointment.status)">{{ statusLabel(appointment.status) }}</span></div>
+              <div class="patient-actions">
+                @if (canViewPatients()) { <a [routerLink]="['/patients', appointment.patientId]">Ficha del paciente</a> }
+                @if (canViewClinicalRecords()) { <a [routerLink]="['/patients', appointment.patientId, 'medical-record']" [queryParams]="{ appointmentId: appointment.appointmentId }">Historia clínica</a> }
+                @if (canConfirmAppointment(appointment)) { <button type="button" (click)="confirmAppointment(appointment)" [disabled]="busyAppointmentId() === appointment.appointmentId">Confirmar</button> }
+                @if (canCompleteAppointment(appointment)) { <button type="button" class="complete-action" (click)="completeAppointment(appointment)" [disabled]="busyAppointmentId() === appointment.appointmentId">{{ busyAppointmentId() === appointment.appointmentId ? 'Guardando…' : 'Completar' }}</button> }
+              </div>
+            </article>
+          }
+        </div>
+      }
+    </section>
   } @else {
-  <article class="metric-card patients-metric"><p class="metric-label">Pacientes</p><p class="metric-note">No tenés acceso a esta sección.</p></article>
+    <section class="panel fallback-panel"><span class="eyebrow">MÓDULOS DISPONIBLES</span><h2>Accesos de tu cuenta</h2><div class="fallback-links">
+      @if (canViewPatients()) { <a routerLink="/patients">Pacientes</a> }
+      @if (canViewAppointments()) { <a routerLink="/appointments">Agenda</a> }
+      @if (canViewClinicalRecords()) { <a routerLink="/patients">Historias clínicas</a> }
+    </div></section>
   }
-  <article class="metric-card pending-metric">
-    <div class="metric-topline">
-      <span class="metric-icon icon-calendar">A</span
-      ><span class="pending-chip">PR&Oacute;XIMAMENTE</span>
-    </div>
-    <p class="metric-label">Agenda de turnos</p>
-    <p class="metric-number metric-muted">Pendiente</p>
-    <span class="metric-note">El m&oacute;dulo todav&iacute;a no est&aacute; disponible</span>
-  </article>
-  <article class="metric-card pending-metric">
-    <div class="metric-topline">
-      <span class="metric-icon icon-treatment">T</span
-      ><span class="pending-chip">PR&Oacute;XIMAMENTE</span>
-    </div>
-    <p class="metric-label">Tratamientos</p>
-    <p class="metric-number metric-muted">Pendiente</p>
-    <span class="metric-note">El m&oacute;dulo todav&iacute;a no est&aacute; disponible</span>
-  </article>
-</section>
-<section class="bottom-grid">
-  <article class="next-step-card">
-    <div class="next-step-copy">
-      <span class="eyebrow">PRIMER PASO</span>
-      <h2>Empez&aacute; por tus pacientes</h2>
-      <p>
-        Registr&aacute; sus datos y cre&aacute; su historia cl&iacute;nica para tener toda la
-        informaci&oacute;n esencial a mano.
-      </p>
-      @if (canViewPatients()) { <a routerLink="/patients" class="text-link"
-        >Ir a pacientes <span aria-hidden="true">&rarr;</span></a
-      > }
-    </div>
-    <div class="next-step-icon" aria-hidden="true">
-      <svg viewBox="0 0 64 64" fill="none">
-        <circle cx="32" cy="32" r="29" fill="#E9F5F3" />
-        <path d="M32 18v28M18 32h28" stroke="#287C78" stroke-width="4" stroke-linecap="round" />
-      </svg>
-    </div>
-  </article>
-  <article class="module-card">
-    <div class="module-heading">
-      <span class="module-heading-icon">+</span>
-      <div>
-        <span class="eyebrow">EN CAMINO</span>
-        <h3>M&aacute;s herramientas, pronto</h3>
-      </div>
-    </div>
-    <div class="module-row">
-      <span class="module-row-icon">T</span><span>Turnos y agenda</span
-      ><span class="module-status">Pendiente</span>
-    </div>
-    <div class="module-row">
-      <span class="module-row-icon">O</span><span>Odontograma</span
-      ><span class="module-status">Pendiente</span>
-    </div>
-    <div class="module-row">
-      <span class="module-row-icon">T</span><span>Tratamientos</span
-      ><span class="module-status">Pendiente</span>
-    </div>
-  </article>
 </section>
