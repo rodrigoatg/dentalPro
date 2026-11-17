@@ -141,7 +141,7 @@
         <div class="form-grid">
           <label class="field"
             ><span>Tipo de documento <b>*</b></span
-            ><input formControlName="documentType" placeholder="Ej. DNI" autocomplete="off" />
+            ><select formControlName="documentType" autocomplete="off"><option value="">Seleccionar tipo</option>@for (documentType of documentTypes; track documentType.value) { <option [value]="documentType.value">{{ documentType.label }}</option> }</select>
             @if (
               patientForm.controls.documentType.touched && patientForm.controls.documentType.invalid
             ) {
@@ -179,7 +179,7 @@
           <label class="field"
             ><span>Fecha de nacimiento</span
             ><input formControlName="dateOfBirth" type="date" [max]="today"
-          /></label>
+          />@if (patientForm.controls.dateOfBirth.touched && patientForm.controls.dateOfBirth.hasError('futureDate')) { <small class="field-error">La fecha de nacimiento no puede ser futura.</small> }</label>
         </div>
         <div class="form-section-title contact-title">
           <span class="step-number">2</span>

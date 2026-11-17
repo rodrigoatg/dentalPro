@@ -1,6 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit, inject, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule, ValidationErrors, ValidatorFn, Validators } from '@angular/forms';
 import { PatientsApiService } from '../core/patients/patients-api.service';
 import { CreatedPatient, PatientListItem } from '../core/patients/patient.models';
 import { AuthService } from '../core/auth/auth.service';
@@ -27,14 +27,19 @@ export class PatientList implements OnInit {
   private loadSequence = 0;
   protected readonly canCreatePatients = () => this.auth.hasPermission('patients.create');
   protected readonly canViewClinicalRecords = () => this.auth.hasPermission('clinical.records.view');
+  protected readonly documentTypes = [{ value: 'DNI', label: 'DNI' }];
   private readonly currentDate = new Date();
-  protected readonly today = `${this.currentDate.getFullYear()}-${String(this.currentDate.getMonth() + 1).padStart(2, '0')}-${String(this.currentDate.getDate()).padStart(2, '0')}`;
+  protected readonly today = `${this.currentDate.getUTCFullYear()}-${String(this.currentDate.getUTCMonth() + 1).padStart(2, '0')}-${String(this.currentDate.getUTCDate()).padStart(2, '0')}`;
+  private readonly dateNotInFuture: ValidatorFn = (control): ValidationErrors | null => {
+    const value = control.value as string;
+    return value && value > this.today ? { futureDate: true } : null;
+  };
   protected readonly patientForm = this.formBuilder.nonNullable.group({
     documentType: ['', [Validators.required, Validators.pattern(/\S/)]],
     documentNumber: ['', [Validators.required, Validators.pattern(/\S/)]],
     firstName: ['', [Validators.required, Validators.pattern(/\S/)]],
     lastName: ['', [Validators.required, Validators.pattern(/\S/)]],
-    dateOfBirth: [''],
+    dateOfBirth: ['', this.dateNotInFuture],
     phone: [''],
     email: ['', Validators.email],
     address: [''],
@@ -142,7 +147,7 @@ export class PatientList implements OnInit {
     if (error.status === 409)
       return 'Ya existe un paciente con ese tipo y n\u00FAmero de documento.';
     if (error.status === 400)
-      return 'Revis\u00E1 los datos ingresados. El nombre y el apellido son obligatorios y la fecha no puede ser futura.';
+      return 'Revis\u00E1 los datos: tipo y n\u00FAmero de documento, nombre, apellido, fecha de nacimiento y correo.';
     return 'Ocurri\u00F3 un error al comunicarse con DentalPro. Intent\u00E1 nuevamente.';
   }
 }

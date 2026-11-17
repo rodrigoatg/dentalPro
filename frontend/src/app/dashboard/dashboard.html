@@ -83,24 +83,30 @@
     </section>
   } @else if (isReceptionist()) {
     <section class="quick-actions" aria-label="Accesos rápidos">
-      <a class="primary-action" routerLink="/appointments"><span class="action-symbol">+</span><span><strong>Abrir agenda</strong><small>Consultar o registrar un turno</small></span><span class="arrow">&rarr;</span></a>
+      @if (authCanCreateAppointment()) { <a class="primary-action" routerLink="/appointments" [queryParams]="{ create: '1', date: selectedDay() || clinicToday() }"><span class="action-symbol">+</span><span><strong>Nuevo turno</strong><small>Abrir el formulario de Agenda</small></span><span class="arrow">&rarr;</span></a> }
+      <a class="secondary-action" routerLink="/appointments"><span class="action-symbol">A</span><span><strong>Abrir agenda</strong><small>Consultar todos los turnos</small></span><span class="arrow">&rarr;</span></a>
       @if (canViewPatients()) { <a class="secondary-action" routerLink="/patients"><span class="action-symbol">P</span><span><strong>Pacientes</strong><small>{{ canCreatePatients() ? 'Consultar o registrar un paciente' : 'Consultar fichas de pacientes' }}</small></span><span class="arrow">&rarr;</span></a> }
     </section>
     <section class="panel calendar-panel">
       <header class="panel-heading calendar-toolbar">
-        <div><span class="eyebrow">AGENDA GENERAL</span><h2>{{ periodLabel() || 'Semana de la clínica' }}</h2><small>{{ timeZone() }}</small></div>
-        <div class="calendar-controls"><button type="button" (click)="previousWeek()" aria-label="Semana anterior">&larr;</button><button type="button" (click)="goToToday()">Esta semana</button><button type="button" (click)="nextWeek()" aria-label="Semana siguiente">&rarr;</button></div>
+        <div><span class="eyebrow">AGENDA GENERAL</span><h2>{{ periodLabel() || 'Período de la clínica' }}</h2><small>{{ timeZone() }}</small></div>
+        <div class="reception-controls">
+          <label>Odontólogo<select [ngModel]="dentistFilter()" (ngModelChange)="setDentistFilter($event)"><option value="">Todos</option>@for (dentist of dentists(); track dentist.id) { <option [value]="dentist.id">{{ dentist.lastName }}, {{ dentist.firstName }}</option> }</select></label>
+          <label>Estado<select [ngModel]="statusFilter()" (ngModelChange)="setStatusFilter($event)"><option value="">Todos</option><option value="Scheduled">Pendiente</option><option value="Confirmed">Confirmado</option><option value="Completed">Completado</option><option value="Cancelled">Cancelado</option><option value="Rescheduled">Reprogramado</option></select></label>
+          <label>Vista<select [ngModel]="receptionistView()" (ngModelChange)="setReceptionistView($event)"><option value="week">Semana</option><option value="day">Día</option></select></label>
+          <div class="calendar-controls"><button type="button" (click)="shiftReceptionistPeriod(-1)" [attr.aria-label]="receptionistView() === 'day' ? 'Día anterior' : 'Semana anterior'">&larr;</button><button type="button" (click)="goToToday()">{{ receptionistView() === 'day' ? 'Hoy' : 'Esta semana' }}</button><button type="button" (click)="shiftReceptionistPeriod(1)" [attr.aria-label]="receptionistView() === 'day' ? 'Día siguiente' : 'Semana siguiente'">&rarr;</button></div>
+        </div>
       </header>
       @if (scheduleLoading() || appointmentsLoading()) { <p class="loading-state" role="status">Cargando agenda&hellip;</p> }
       @else if (scheduleError()) { <p class="empty-state">{{ scheduleError() }}</p> }
       @else if (appointmentsError()) { <p class="inline-error" role="alert">{{ appointmentsError() }}</p> }
       @else {
-        <div class="week-grid">
+        <div class="week-grid" [class.day-view]="receptionistView() === 'day'">
           @for (day of weekDays(); track day.date) {
             <section class="day-column"><h3>{{ day.label }} <span>{{ day.appointments.length }}</span></h3>
-              @if (day.appointments.length === 0) { <p class="day-empty">Sin turnos</p> }
+              @if (day.appointments.length === 0) { <p class="day-empty">Sin turnos</p>@if (authCanCreateAppointment()) { <a class="empty-day-create" routerLink="/appointments" [queryParams]="{ create: '1', date: day.date }">＋ Crear en este día</a> } }
               @for (appointment of day.appointments; track appointment.appointmentId) {
-                <article class="appointment-row">
+                <article class="appointment-row" [class]="'appointment-row ' + statusClass(appointment.status)">
                   <span class="appointment-time">{{ timeLabel(appointment.startDateTime) }}</span>
                   <div class="appointment-copy"><strong>{{ appointment.patientLastName }}, {{ appointment.patientFirstName }}</strong><span>Dr. {{ appointment.dentistFirstName }} {{ appointment.dentistLastName }}</span></div>
                   <span class="status-pill" [class]="'status-pill ' + statusClass(appointment.status)">{{ statusLabel(appointment.status) }}</span>

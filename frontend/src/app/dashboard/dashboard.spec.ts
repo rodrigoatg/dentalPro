@@ -64,6 +64,9 @@ describe('Dashboard', () => {
     permissions = new Set(['appointments.view', 'appointments.view.all', 'appointments.create', 'patients.view', 'patients.create']);
     const fixture = TestBed.createComponent(Dashboard);
     fixture.detectChanges();
+    http.expectOne('/api/appointments/dentists').flush([
+      { id: 'dentist-1', firstName: 'Luis', lastName: 'Paz' },
+    ]);
     http.expectOne('/api/appointments/schedule/settings').flush({
       timeZoneId: 'UTC', defaultAppointmentDurationMinutes: 30, startIncrementMinutes: 15,
     });
@@ -79,6 +82,95 @@ describe('Dashboard', () => {
     expect(text).toContain('Abrir agenda');
     expect(text).toContain('Pacientes');
     expect(http.match('/api/patients/count').length).toBe(0);
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Odontólogo');
+  });
+
+  it('combines dentist and status filters, changes period without losing date, and exposes create only with permission', async () => {
+    permissions = new Set(['appointments.view', 'appointments.view.all', 'appointments.create']);
+    const fixture = TestBed.createComponent(Dashboard);
+    fixture.detectChanges();
+    http.expectOne('/api/appointments/dentists').flush([
+      { id: 'dentist-1', firstName: 'Luis', lastName: 'Paz' },
+      { id: 'dentist-2', firstName: 'Eva', lastName: 'Sol' },
+    ]);
+    http.expectOne('/api/appointments/schedule/settings').flush({
+      timeZoneId: 'UTC', defaultAppointmentDurationMinutes: 30, startIncrementMinutes: 15,
+    });
+    http.expectOne((request) => request.url === '/api/appointments').flush([]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    const createLink = Array.from(element.querySelectorAll('a')).find((anchor) => anchor.textContent?.includes('Nuevo turno'));
+    expect(createLink).toBeTruthy();
+    expect(createLink!.getAttribute('href')).toContain('create=1');
+    const selects = element.querySelectorAll('select');
+    const dentistSelect = selects[0];
+    dentistSelect.value = 'dentist-2';
+    dentistSelect.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    const dentistRequest = http.expectOne((request) => request.url === '/api/appointments');
+    expect(dentistRequest.request.params.get('dentistId')).toBe('dentist-2');
+    const selectedDay = new Date().toISOString().slice(0, 10);
+    const futureStart = new Date(Date.now() + 30 * 60_000).toISOString();
+    const futureConfirmed = { ...appointment('f2', selectedDay, 'Confirmed'), startDateTime: futureStart };
+    dentistRequest.flush([
+      appointment('f1', selectedDay, 'Scheduled'), futureConfirmed,
+      appointment('f3', selectedDay, 'Completed'), appointment('f4', selectedDay, 'Cancelled'),
+      appointment('f5', selectedDay, 'Rescheduled'),
+    ]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    for (const stateClass of ['status-scheduled', 'status-confirmed', 'status-completed', 'status-cancelled', 'status-rescheduled']) {
+      expect(element.querySelector(`.appointment-row.${stateClass}`)).toBeTruthy();
+    }
+
+    const statusSelect = selects[1];
+    statusSelect.value = 'Confirmed';
+    statusSelect.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    expect(element.querySelectorAll('.appointment-row')).toHaveLength(1);
+    expect(element.querySelector('.appointment-row.status-confirmed')).toBeTruthy();
+    expect(element.querySelector('.upcoming-row')).toBeTruthy();
+
+    const viewSelect = selects[2];
+    viewSelect.value = 'day';
+    viewSelect.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    const dayRequest = http.expectOne((request) => request.url === '/api/appointments');
+    expect(dayRequest.request.params.get('dentistId')).toBe('dentist-2');
+    expect(Date.parse(dayRequest.request.params.get('to')!) - Date.parse(dayRequest.request.params.get('from')!)).toBeLessThan(
+      Date.parse(dentistRequest.request.params.get('to')!) - Date.parse(dentistRequest.request.params.get('from')!),
+    );
+    dayRequest.flush([]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(element.querySelector('.week-grid.day-view')).toBeTruthy();
+    const dayNext = element.querySelector<HTMLButtonElement>('button[aria-label="Día siguiente"]');
+    expect(dayNext).toBeTruthy();
+    dayNext!.click();
+    fixture.detectChanges();
+    const nextDayRequest = http.expectOne((request) => request.url === '/api/appointments');
+    expect(nextDayRequest.request.params.get('dentistId')).toBe('dentist-2');
+    expect(Date.parse(nextDayRequest.request.params.get('from')!) - Date.parse(dayRequest.request.params.get('from')!))
+      .toBe(86_400_000);
+    nextDayRequest.flush([]);
+    await fixture.whenStable();
+
+  });
+
+  it('does not expose the new appointment action without appointments.create', async () => {
+    permissions = new Set(['appointments.view', 'appointments.view.all']);
+    const fixture = TestBed.createComponent(Dashboard);
+    fixture.detectChanges();
+    http.expectOne('/api/appointments/schedule/settings').flush({
+      timeZoneId: 'UTC', defaultAppointmentDurationMinutes: 30, startIncrementMinutes: 15,
+    });
+    http.expectOne((request) => request.url === '/api/appointments').flush([]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+    expect(Array.from(element.querySelectorAll('a')).some((anchor) => anchor.textContent?.includes('Nuevo turno'))).toBe(false);
     expect(http.match('/api/appointments/dentists').length).toBe(0);
   });
 

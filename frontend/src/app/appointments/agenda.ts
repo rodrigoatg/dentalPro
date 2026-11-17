@@ -1,7 +1,8 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { forkJoin, of } from 'rxjs';
+import { catchError, debounceTime, distinctUntilChanged, finalize, forkJoin, of, Subject, switchMap } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AuthService } from '../core/auth/auth.service';
 import { AppointmentsApiService } from '../core/appointments/appointments-api.service';
 import {
@@ -26,10 +27,18 @@ export class Agenda implements OnInit {
   private readonly api = inject(AppointmentsApiService);
   private readonly patientsApi = inject(PatientsApiService);
   private readonly auth = inject(AuthService);
-  protected readonly patientFilterId = inject(ActivatedRoute).snapshot.queryParamMap.get('patientId');
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly route = inject(ActivatedRoute);
+  protected readonly patientFilterId = this.route.snapshot.queryParamMap.get('patientId');
   private readonly viewPermission = 'appointments.view';
   protected readonly appointments = signal<Appointment[]>([]);
   protected readonly patients = signal<PatientListItem[]>([]);
+  protected readonly selectedPatient = signal<PatientListItem | null>(null);
+  protected readonly patientSearchText = signal('');
+  protected readonly patientSearchPending = signal(false);
+  protected readonly patientSearchLoading = signal(false);
+  private readonly patientSearchTerms = new Subject<string>();
+  private lastPatientSearchTerm = '';
   protected readonly dentists = signal<DentistOption[]>([]);
   protected readonly schedule = signal<ClinicSchedule | null>(null);
   protected readonly settings = signal<ClinicScheduleSettings | null>(null);
@@ -79,6 +88,25 @@ export class Agenda implements OnInit {
   protected readonly canViewPatients = () => this.auth.hasPermission('patients.view');
 
   ngOnInit(): void {
+    this.patientSearchTerms.pipe(
+      debounceTime(250),
+      distinctUntilChanged(),
+      switchMap((term) => {
+        if (!term || !this.canViewPatients()) return of([] as PatientListItem[]);
+        this.patientSearchLoading.set(true);
+        return this.patientsApi.list(term).pipe(
+          catchError((error: HttpErrorResponse) => {
+            this.error.set(this.errorMessage(error));
+            return of([] as PatientListItem[]);
+          }),
+          finalize(() => this.patientSearchLoading.set(false)),
+        );
+      }),
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe((patients) => {
+      this.patients.set(patients.filter((patient) => patient.isActive));
+      this.patientSearchPending.set(false);
+    });
     this.loadReferenceData();
   }
 
@@ -87,13 +115,11 @@ export class Agenda implements OnInit {
     this.error.set('');
     forkJoin({
       appointments: this.api.list(this.queryFrom(), this.queryTo()),
-      patients: this.auth.hasPermission('patients.view') ? this.patientsApi.list() : of([]),
       dentists: this.auth.hasPermission('appointments.create') ? this.api.dentists() : of([]),
     })
       .subscribe({
-        next: ({ appointments, patients, dentists }) => {
+        next: ({ appointments, dentists }) => {
           this.appointments.set(appointments);
-          this.patients.set(patients.filter((patient) => patient.isActive));
           this.dentists.set(dentists);
           this.loading.set(false);
         },
@@ -104,6 +130,10 @@ export class Agenda implements OnInit {
         this.settings.set(settings);
         this.focusedDate.set(this.todayInZone(settings.timeZoneId));
         this.weekStart.set(this.mondayOf(this.focusedDate()));
+        const requestedDate = this.route.snapshot.queryParamMap.get('date');
+        if (this.route.snapshot.queryParamMap.get('create') === '1' && this.canCreate()) {
+          this.openCreate(requestedDate && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate) ? requestedDate : undefined);
+        }
         this.loadAppointments();
       },
       error: (error: HttpErrorResponse) => {
@@ -155,16 +185,66 @@ export class Agenda implements OnInit {
   }
   protected statusClass(status: string): string { return status.toLowerCase(); }
 
-  protected openCreate(): void {
+  protected openCreate(initialDate?: string): void {
     if (!this.canCreate()) return;
     this.editingAppointment.set(null);
     this.selectedPatientId.set('');
+    this.selectedPatient.set(null);
+    this.patientSearchText.set('');
+    this.patientSearchPending.set(false);
+    this.patients.set([]);
+    this.patientSearchLoading.set(false);
+    this.lastPatientSearchTerm = '';
+    this.patientSearchTerms.next('');
     this.selectedDentistId.set('');
-    this.selectedDate.set(this.todayInZone(this.settings()?.timeZoneId ?? 'UTC'));
+    this.selectedDate.set(initialDate ?? this.todayInZone(this.settings()?.timeZoneId ?? 'UTC'));
     this.selectedStart.set('');
     this.duration.set('');
     this.notes.set('');
     this.formVisible.set(true);
+    this.refreshAvailability();
+  }
+
+  protected searchPatients(value: string): void {
+    this.patientSearchText.set(value);
+    const term = value.trim().replace(/\s+/g, ' ');
+    if (term.length < 2) {
+      this.patients.set([]);
+      this.patientSearchPending.set(false);
+      this.patientSearchLoading.set(false);
+      this.lastPatientSearchTerm = '';
+      this.patientSearchTerms.next('');
+      return;
+    }
+    if (term === this.lastPatientSearchTerm) return;
+    this.lastPatientSearchTerm = term;
+    this.patientSearchPending.set(true);
+    this.error.set('');
+    this.patientSearchTerms.next(term);
+  }
+
+  protected selectPatient(patient: PatientListItem): void {
+    this.selectedPatientId.set(patient.id);
+    this.selectedPatient.set(patient);
+    this.selectedStart.set('');
+    this.patientSearchText.set('');
+    this.patientSearchPending.set(false);
+    this.patients.set([]);
+    this.lastPatientSearchTerm = '';
+    this.patientSearchTerms.next('');
+    this.refreshAvailability();
+  }
+
+  protected clearPatientSelection(): void {
+    this.selectedPatientId.set('');
+    this.selectedPatient.set(null);
+    this.selectedStart.set('');
+    this.patientSearchText.set('');
+    this.patientSearchPending.set(false);
+    this.patients.set([]);
+    this.lastPatientSearchTerm = '';
+    this.patientSearchTerms.next('');
+    this.patientSearchLoading.set(false);
     this.refreshAvailability();
   }
   protected openReschedule(appointment: Appointment): void {

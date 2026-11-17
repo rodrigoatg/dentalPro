@@ -11,8 +11,10 @@ export class AppointmentsApiService {
   private readonly http = inject(HttpClient);
   private readonly endpoint = '/api/appointments';
 
-  list(from: string, to: string): Observable<Appointment[]> {
-    return this.http.get<Appointment[]>(this.endpoint, { params: new HttpParams().set('from', from).set('to', to) });
+  list(from: string, to: string, dentistId?: string): Observable<Appointment[]> {
+    let params = new HttpParams().set('from', from).set('to', to);
+    if (dentistId) params = params.set('dentistId', dentistId);
+    return this.http.get<Appointment[]>(this.endpoint, { params });
   }
   availability(from: string, to: string, dentistId: string, patientId?: string): Observable<Availability> {
     let params = new HttpParams().set('from', from).set('to', to).set('dentistId', dentistId);

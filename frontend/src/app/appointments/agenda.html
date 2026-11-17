@@ -54,7 +54,24 @@
       <header class="modal-header"><div><span class="eyebrow">AGENDA</span><h2 id="appointment-title">{{ editingAppointment() ? 'Reprogramar turno' : 'Nuevo turno' }}</h2></div><button type="button" class="close" aria-label="Cerrar" (click)="closeForm()">×</button></header>
       <div class="form-grid">
         @if (!editingAppointment()) {
-          <label>Paciente<select [ngModel]="selectedPatientId()" (ngModelChange)="selectedPatientId.set($event); refreshAvailability()" name="patientId"><option value="">Seleccionar paciente</option>@for (patient of patients(); track patient.id) { <option [value]="patient.id">{{ patient.lastName }}, {{ patient.firstName }}</option> }</select></label>
+          <div class="patient-autocomplete wide">
+            <label for="appointment-patient-search">Paciente</label>
+            @if (selectedPatient(); as patient) {
+              <div class="selected-patient"><span>{{ patient.lastName }}, {{ patient.firstName }} · {{ patient.documentType }} {{ patient.documentNumber }}</span><button type="button" (click)="clearPatientSelection()">Cambiar paciente</button></div>
+            } @else if (canViewPatients()) {
+              <input id="appointment-patient-search" type="search" [ngModel]="patientSearchText()" (ngModelChange)="searchPatients($event)" name="patientSearch" placeholder="Buscar por nombre, apellido o documento" autocomplete="off" role="combobox" aria-autocomplete="list" [attr.aria-expanded]="patients().length > 0" aria-controls="appointment-patient-results" />
+              @if (patientSearchLoading()) { <small class="patient-search-hint" role="status">Buscando pacientes…</small> }
+              @else if (patientSearchText().trim().length > 0 && patientSearchText().trim().length < 2) { <small class="patient-search-hint">Escribí al menos dos caracteres.</small> }
+              @else if (!patientSearchPending() && patientSearchText().trim().length >= 2 && patients().length === 0) { <small class="patient-search-hint">No se encontraron pacientes activos.</small> }
+              @if (patientSearchText().trim().length >= 2 && patients().length > 0) {
+                <div id="appointment-patient-results" class="patient-search-results" role="listbox">
+                  @for (patient of patients(); track patient.id) {
+                    <button type="button" role="option" aria-selected="false" (click)="selectPatient(patient)"><strong>{{ patient.lastName }}, {{ patient.firstName }}</strong><span>{{ patient.documentType }} {{ patient.documentNumber }}</span></button>
+                  }
+                </div>
+              }
+            } @else { <p class="patient-search-hint">Tu cuenta no tiene permiso para consultar pacientes.</p> }
+          </div>
         } @else { <div class="read-only"><span>Paciente</span><strong>{{ editingAppointment()?.patientLastName }}, {{ editingAppointment()?.patientFirstName }}</strong></div> }
         <label>Odontólogo<select [ngModel]="selectedDentistId()" (ngModelChange)="selectedDentistId.set($event); refreshAvailability()" name="dentistId"><option value="">Seleccionar odontólogo</option>@for (dentist of dentists(); track dentist.id) { <option [value]="dentist.id">{{ dentist.lastName }}, {{ dentist.firstName }}</option> }</select></label>
         <label>Fecha<input type="date" [ngModel]="selectedDate()" (ngModelChange)="selectedDate.set($event); refreshAvailability()" name="appointmentDate" /></label>

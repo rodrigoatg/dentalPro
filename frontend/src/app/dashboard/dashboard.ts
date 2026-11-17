@@ -1,9 +1,10 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../core/auth/auth.service';
 import { AppointmentsApiService } from '../core/appointments/appointments-api.service';
-import { Appointment, ClinicScheduleSettings } from '../core/appointments/appointment.models';
+import { Appointment, ClinicScheduleSettings, DentistOption } from '../core/appointments/appointment.models';
 import { PatientsApiService } from '../core/patients/patients-api.service';
 
 interface DashboardDay {
@@ -14,7 +15,7 @@ interface DashboardDay {
 
 @Component({
   selector: 'app-dashboard',
-  imports: [RouterLink],
+  imports: [FormsModule, RouterLink],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.css',
 })
@@ -28,6 +29,7 @@ export class Dashboard implements OnInit {
   protected readonly canViewPatients = () => this.auth.hasPermission('patients.view');
   protected readonly canCreatePatients = () => this.auth.hasPermission('patients.create');
   protected readonly canViewAppointments = () => this.auth.hasPermission('appointments.view');
+  protected readonly authCanCreateAppointment = () => this.auth.hasPermission('appointments.create');
   protected readonly canViewGeneralAgenda = () => this.auth.hasPermission('appointments.view.all');
   protected readonly isDentist = computed(() =>
     this.canViewAppointments() && !this.canViewGeneralAgenda() &&
@@ -40,6 +42,7 @@ export class Dashboard implements OnInit {
 
   protected readonly patientsCount = signal<number | null>(null);
   protected readonly dentistsCount = signal<number | null>(null);
+  protected readonly dentists = signal<DentistOption[]>([]);
   protected readonly appointments = signal<Appointment[]>([]);
   protected readonly timeZone = signal<string | null>(null);
   protected readonly scheduleLoading = signal(false);
@@ -56,27 +59,33 @@ export class Dashboard implements OnInit {
   protected readonly clinicToday = signal('');
   protected readonly weekStart = signal('');
   protected readonly selectedDay = signal('');
+  protected readonly receptionistView = signal<'week' | 'day'>('week');
+  protected readonly dentistFilter = signal('');
+  protected readonly statusFilter = signal('');
   private readonly now = signal(Date.now());
 
   protected readonly periodAppointments = computed(() => {
     const zone = this.timeZone();
-    const start = this.isDentist() ? this.selectedDay() : this.weekStart();
+    const start = this.isDentist() || (this.isReceptionist() && this.receptionistView() === 'day')
+      ? this.selectedDay() : this.weekStart();
     if (!zone || !start) return [];
-    const days = this.isDentist() ? 1 : 7;
+    const days = this.isDentist() || (this.isReceptionist() && this.receptionistView() === 'day') ? 1 : 7;
     const end = this.addDays(start, days);
     return this.appointments()
       .filter((appointment) => {
         const localDate = this.dateInZone(appointment.startDateTime, zone);
         return localDate >= start && localDate < end;
       })
+      .filter((appointment) => !this.isReceptionist() || !this.statusFilter() || appointment.status === this.statusFilter())
       .sort((left, right) => left.startDateTime.localeCompare(right.startDateTime));
   });
 
   protected readonly weekDays = computed<DashboardDay[]>(() => {
     const zone = this.timeZone();
-    const start = this.weekStart();
+    const start = this.isReceptionist() && this.receptionistView() === 'day' ? this.selectedDay() : this.weekStart();
     if (!zone || !start) return [];
-    return Array.from({ length: 7 }, (_, index) => {
+    const count = this.isReceptionist() && this.receptionistView() === 'day' ? 1 : 7;
+    return Array.from({ length: count }, (_, index) => {
       const date = this.addDays(start, index);
       const dayAppointments = this.periodAppointments().filter(
         (appointment) => this.dateInZone(appointment.startDateTime, zone) === date,
@@ -106,15 +115,40 @@ export class Dashboard implements OnInit {
       .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
       .slice(0, 5));
   protected readonly periodLabel = computed(() => {
-    const start = this.isDentist() ? this.selectedDay() : this.weekStart();
+    const dayView = this.isDentist() || (this.isReceptionist() && this.receptionistView() === 'day');
+    const start = dayView ? this.selectedDay() : this.weekStart();
     if (!start) return '';
-    return this.isDentist() ? this.dayLabel(start) : this.weekLabel(start);
+    return dayView ? this.dayLabel(start) : this.weekLabel(start);
   });
 
   ngOnInit(): void {
     if (this.isAdministrator() && this.canViewPatients()) this.loadPatientCount();
-    if (this.isAdministrator() && this.auth.hasPermission('appointments.create')) this.loadDentistCount();
+    if ((this.isAdministrator() || this.isReceptionist()) && this.auth.hasPermission('appointments.create')) this.loadDentistOptions();
     if (this.canViewAppointments()) this.loadScheduleSettings();
+  }
+
+  protected setDentistFilter(value: string): void {
+    this.dentistFilter.set(value);
+    this.loadAppointments();
+  }
+
+  protected setStatusFilter(value: string): void {
+    this.statusFilter.set(value);
+  }
+
+  protected setReceptionistView(value: 'week' | 'day'): void {
+    this.receptionistView.set(value);
+    if (value === 'day') this.selectedDay.set(this.selectedDay() || this.clinicToday());
+    else this.weekStart.set(this.mondayOf(this.selectedDay() || this.clinicToday()));
+    this.loadAppointments();
+  }
+
+  protected shiftReceptionistPeriod(amount: number): void {
+    const days = this.receptionistView() === 'day' ? amount : amount * 7;
+    const nextDate = this.addDays(this.selectedDay() || this.clinicToday(), days);
+    this.selectedDay.set(nextDate);
+    this.weekStart.set(this.mondayOf(nextDate));
+    this.loadAppointments();
   }
 
   protected previousWeek(): void {
@@ -142,8 +176,8 @@ export class Dashboard implements OnInit {
   }
 
   protected goToToday(): void {
-    if (this.isDentist()) this.selectedDay.set(this.clinicToday());
-    else this.weekStart.set(this.mondayOf(this.clinicToday()));
+    if (this.isDentist() || this.isReceptionist()) this.selectedDay.set(this.clinicToday());
+    this.weekStart.set(this.mondayOf(this.clinicToday()));
     this.loadAppointments();
   }
 
@@ -152,7 +186,7 @@ export class Dashboard implements OnInit {
     if (this.canViewAppointments() && this.timeZone()) this.loadAppointments();
     if (this.isAdministrator()) {
       this.loadPatientCount();
-      this.loadDentistCount();
+      if (this.auth.hasPermission('appointments.create')) this.loadDentistOptions();
     }
   }
 
@@ -212,13 +246,18 @@ export class Dashboard implements OnInit {
     });
   }
 
-  private loadDentistCount(): void {
+  private loadDentistOptions(): void {
     this.dentistsLoading.set(true);
     this.dentistsError.set('');
     this.appointmentsApi.dentists().subscribe({
-      next: (dentists) => { this.dentistsCount.set(dentists.length); this.dentistsLoading.set(false); },
+      next: (dentists) => {
+        this.dentists.set(dentists);
+        if (this.isAdministrator()) this.dentistsCount.set(dentists.length);
+        this.dentistsLoading.set(false);
+      },
       error: (error: HttpErrorResponse) => {
-        this.dentistsError.set(this.errorMessage(error)); this.dentistsLoading.set(false);
+        this.dentistsError.set(this.errorMessage(error));
+        this.dentistsLoading.set(false);
       },
     });
   }
@@ -251,15 +290,17 @@ export class Dashboard implements OnInit {
 
   private loadAppointments(): void {
     const zone = this.timeZone();
-    const start = this.isDentist() ? this.selectedDay() : this.weekStart();
+    const dayView = this.isDentist() || (this.isReceptionist() && this.receptionistView() === 'day');
+    const start = dayView ? this.selectedDay() : this.weekStart();
     if (!zone || !start) return;
-    const end = this.addDays(start, this.isDentist() ? 1 : 7);
+    const end = this.addDays(start, dayView ? 1 : 7);
     const from = new Date(Date.parse(`${start}T00:00:00Z`) - 2 * 86_400_000).toISOString();
     const to = new Date(Date.parse(`${end}T00:00:00Z`) + 2 * 86_400_000).toISOString();
     this.appointmentsLoading.set(true);
     this.appointmentsError.set('');
-    // No dentistId is sent: the API applies the authenticated user's own or general scope.
-    this.appointmentsApi.list(from, to).subscribe({
+    // The API applies the authenticated user's scope; the optional dentist filter can only narrow it.
+    const dentistId = this.isReceptionist() ? this.dentistFilter() || undefined : undefined;
+    this.appointmentsApi.list(from, to, dentistId).subscribe({
       next: (items) => { this.appointments.set(items); this.appointmentsLoading.set(false); },
       error: (error: HttpErrorResponse) => {
         this.appointmentsError.set(this.errorMessage(error)); this.appointmentsLoading.set(false);

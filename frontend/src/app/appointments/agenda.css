@@ -27,16 +27,21 @@
 .day-heading { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; padding:0 2px 9px; border-bottom:1px solid #edf1f3; color:#536d7d; font-size:10px; text-transform:capitalize; }
 .day-heading strong { display:grid; place-items:center; min-width:19px; height:19px; border-radius:50%; color:#357c73; background:#edf7f3; font-size:9px; }
 .day-empty { padding:16px 4px; color:#a4afb6; font-size:9px; text-align:center; }
-.appointment-card { display:flex; flex-direction:column; gap:5px; margin:0 0 8px; padding:9px; border:1px solid #dfebe8; border-left:3px solid #5ba38b; border-radius:8px; background:#f8fcfa; }
-.appointment-card.confirmed { border-color:#dce6f3; border-left-color:#648bb7; background:#f8faff; }
-.appointment-card.completed { border-color:#e6e8ed; border-left-color:#8c98a5; background:#fafbfc; }
-.appointment-card.cancelled,.appointment-card.rescheduled { border-color:#f0e0dc; border-left-color:#bd8277; background:#fffaf9; opacity:.75; }
+.appointment-card { display:flex; flex-direction:column; gap:5px; margin:0 0 8px; padding:9px; border:1px solid var(--appointment-scheduled-border); border-left:3px solid var(--appointment-scheduled-border); border-radius:8px; background:var(--appointment-scheduled-bg); }
+.appointment-card.confirmed { border-color:var(--appointment-confirmed-border); border-left-color:var(--appointment-confirmed-border); background:var(--appointment-confirmed-bg); }
+.appointment-card.completed { border-color:var(--appointment-completed-border); border-left-color:var(--appointment-completed-border); background:var(--appointment-completed-bg); }
+.appointment-card.cancelled { border-color:var(--appointment-cancelled-border); border-left-color:var(--appointment-cancelled-border); background:var(--appointment-cancelled-bg); opacity:.82; }
+.appointment-card.rescheduled { border-color:var(--appointment-rescheduled-border); border-left-color:var(--appointment-rescheduled-border); background:var(--appointment-rescheduled-bg); opacity:.9; }
 .appointment-time { color:#26796f; font-size:10px; font-weight:750; font-variant-numeric:tabular-nums; }
 .patient-name { color:#2b4559; font-size:10px; line-height:1.35; }
 .dentist-name { color:#7b8993; font-size:9px; }
 .appointment-notes { display:-webkit-box; overflow:hidden; color:#7d8c94; font-size:8px; line-height:1.35; -webkit-box-orient:vertical; -webkit-line-clamp:2; }
 .clinical-record-link { color:#26796f; font-size:10px; font-weight:650; text-decoration:none; }
-.status-badge { align-self:flex-start; padding:3px 6px; border-radius:10px; color:#4e806c; background:#eaf5ef; font-size:8px; }
+.status-badge { align-self:flex-start; padding:3px 6px; border-radius:10px; color:var(--appointment-scheduled-text); background:#ffebc2; font-size:8px; }
+.appointment-card.confirmed .status-badge { color:var(--appointment-confirmed-text); background:#d9eaff; }
+.appointment-card.completed .status-badge { color:var(--appointment-completed-text); background:#d9efdf; }
+.appointment-card.cancelled .status-badge { color:var(--appointment-cancelled-text); background:#ffdfdb; }
+.appointment-card.rescheduled .status-badge { color:var(--appointment-rescheduled-text); background:#e8dff4; }
 .card-actions { display:flex; flex-wrap:wrap; gap:4px; margin-top:3px; }
 .card-actions button { padding:4px 5px; border:1px solid #dce9e5; border-radius:5px; color:#34796e; background:#fff; font-size:8px; cursor:pointer; }
 .card-actions button:disabled { opacity:.5; }

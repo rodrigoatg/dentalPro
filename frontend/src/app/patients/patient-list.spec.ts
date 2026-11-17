@@ -71,8 +71,11 @@ describe('PatientList', () => {
     fixture.detectChanges();
     const input = (name: string) =>
       page.querySelector<HTMLInputElement>(`[formControlName="${name}"]`)!;
+    const documentType = page.querySelector<HTMLSelectElement>('[formControlName="documentType"]')!;
+    expect(Array.from(documentType.options).map((option) => option.value)).toEqual(['', 'DNI']);
+    documentType.value = 'DNI';
+    documentType.dispatchEvent(new Event('change'));
     for (const [name, value] of Object.entries({
-      documentType: 'DNI',
       documentNumber: '456',
       firstName: 'Luc\u00EDa',
       lastName: 'Mora',
@@ -122,6 +125,27 @@ describe('PatientList', () => {
     expect(content).toContain('HC-000042');
     expect(content).toContain('Mora, Luc\u00EDa');
     expect(page.querySelector('.patient-detail-link')?.textContent).toContain('Abrir ficha del paciente');
+  });
+
+  it('marks a future birth date invalid in the form consistently with the API', async () => {
+    const fixture = TestBed.createComponent(PatientList);
+    fixture.detectChanges();
+    http.expectOne('/api/patients').flush([]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const page = fixture.nativeElement as HTMLElement;
+    page.querySelector<HTMLButtonElement>('.page-heading button')!.click();
+    fixture.detectChanges();
+    const component = fixture.componentInstance as unknown as {
+      patientForm: { controls: { dateOfBirth: { setValue: (value: string) => void; markAsTouched: () => void; invalid: boolean } } };
+    };
+    const futureDate = new Date();
+    futureDate.setUTCDate(futureDate.getUTCDate() + 1);
+    component.patientForm.controls.dateOfBirth.setValue(futureDate.toISOString().slice(0, 10));
+    component.patientForm.controls.dateOfBirth.markAsTouched();
+    fixture.detectChanges();
+    expect(component.patientForm.controls.dateOfBirth.invalid).toBe(true);
+    expect(page.textContent).toContain('La fecha de nacimiento no puede ser futura.');
   });
 
   it('shows a searchable list and filters through the API service', async () => {
