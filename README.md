@@ -151,3 +151,32 @@ Desde la ra&iacute;z:
 dotnet build DentalPro.sln
 dotnet test DentalPro.sln
 ```
+
+
+
+## INSTALACIÓN NUEVA
+# 1. Clonar
+git clone URL_DEL_REPOSITORIO DentalPro
+cd DentalPro
+
+# 2. Configurar entorno
+Copy-Item .env.example .env
+notepad .env
+
+# 3. Construir e iniciar
+docker compose up --build -d
+
+# 4. Verificar servicios
+docker compose ps
+
+# 5. Restaurar herramienta EF
+docker compose run --rm api dotnet tool restore
+
+# 6. Aplicar migraciones
+docker compose run --rm api dotnet ef database update --project src/DentalPro.Infrastructure --startup-project src/DentalPro.Api
+
+# 7. Inicializar seguridad
+docker compose run --rm api dotnet run --project src/DentalPro.Api -- --bootstrap-security
+
+# 8. Reiniciar API
+docker compose up -d --force-recreate api
